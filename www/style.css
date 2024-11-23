@@ -1,0 +1,38 @@
+body {
+    background-color: #121212; /* Spotify dark background */
+    color: #ffffff; /* White text */
+    font-family: 'Roboto', sans-serif; /* Spotify-style font */
+  }
+  
+  .navbar-default .navbar-nav > li > a {
+    color: #b3b3b3; /* Light gray text for navigation links */
+  }
+  
+  .navbar-default .navbar-brand {
+    color: #1DB954; /* Spotify green for the logo or app title */
+  }
+  
+  .navbar-default .navbar-nav > li > a:hover {
+    color: #1DB954; /* Spotify green on hover */
+  }
+  
+  .panel {
+    background-color: #1f1f1f; /* Darker background for panels */
+    border-color: #282828; /* Subtle border color */
+  }
+  
+  .panel-heading {
+    color: #ffffff; /* White text for panel headers */
+    background-color: #282828; /* Dark panel header */
+  }
+  
+  .btn {
+    background-color: #1DB954; /* Spotify green for buttons */
+    color: #ffffff;
+    border: none;
+  }
+  
+  .btn:hover {
+    background-color: #1ed760; /* Slightly brighter green on hover */
+  }
+  
