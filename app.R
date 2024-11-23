@@ -9,9 +9,24 @@
 library(shiny)
 library(Rspotify)
 library(spotifyr)
+library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(lubridate)
+
+# Load the reference data set and preprocess it
+data_reference = read_csv("C:/Users/Administrator/Desktop/spotify-2023.csv")
+data_reference$streams = as.numeric(data_reference$streams)
+
+# Get the top 10 streams
+top10_streams_list = data_reference %>% arrange(desc(streams)) %>% 
+  slice_head(n = 10) %>% select(track_name,'artist(s)_name',streams)
+colnames(top10_streams_list) = c("track_name", "artist_name", "streams")
+
+# Get the top 10 spotify playlists
+top10_spotify_playlists = data_reference %>% arrange(desc(in_spotify_playlists)) %>% 
+  slice_head(n = 10) %>% select(track_name,'artist(s)_name',in_spotify_playlists)
+colnames(top10_spotify_playlists) = c("track_name", "artist_name", "spotify_playlists")
 
 # Fetch audio features for a user's top tracks
 #tracks_audio_features <- get_audio_features(track_ids = tracks$id, authorization = access_token)
@@ -165,14 +180,37 @@ server <- function(input, output, session) {
   })
   
   # Introduce the data set
-  output$reference <- renderText({HTML("<div style='font-size: 12px; line-height: 1.5;'>
-     This dataset contains a comprehensive list of the most famous songs of 2023 as listed on Spotify.<br>
+  output$reference <- renderUI({
+     introducation = "<div style='font-size: 11.5px; line-height: 1.5;'>
+     The 2023 spotify dataset contains a comprehensive list of the most famous songs of 2023 as listed on Spotify.<br>
      The dataset offers a wealth of features beyond what is typically available in similar datasets.<br> 
      It provides insights into each song's attributes, popularity, and presence on various music platforms.<br> 
-     The dataset includes information such as <strong> track name, artist(s) name, release date, Spotify playlists and charts, streaming statistics</strong> and so on.<br>
-     However, we may only use some of features for our project to analysis the user behavior.<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
-      <span style='font-size: 10px;'>Sources link: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023/data </span></div>"
-  )})
+     The dataset includes information such as <strong> track name, artist(s) name, release date, Spotify playlists and charts, streaming statistics</strong> and so on.<br><br>
+     <strong>Top 10 Tracks by Streams:</strong><br><br>"
+     
+     top10_streams = paste0(lapply(1:nrow(top10_streams_list),function(i){
+       sprintf("%d. <strong>%s</strong> by %s with %s streams<br>",
+               i,
+               top10_streams_list$track_name[i],
+               top10_streams_list$artist_name[i],
+               format(as.numeric(top10_streams_list$streams[i])))
+     }),
+     collapse = "")
+     
+     top10_spotifyplaylists = paste0(lapply(1:nrow(top10_spotify_playlists),function(i){
+       sprintf( "%d. <strong>%s</strong> by %s included in %s Spotify playlists<br>",
+               i,
+               top10_spotify_playlists$track_name[i],
+               top10_spotify_playlists$artist_name[i],
+               format(as.numeric(top10_spotify_playlists$spotify_playlists[i])))
+     }),
+     collapse = "")
+     
+     HTML(paste0(introducation,top10_streams,
+                 "<br><strong>Top 10 Tracks by Spotify Playlists:</strong><br><br>",
+                 top10_spotifyplaylists,
+                 "<br><br><br><span style='font-size: 10px;'>Sources link: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023/data </span></div>"))
+  })
   
 }
 
