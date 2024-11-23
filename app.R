@@ -46,7 +46,7 @@ ui <- fluidPage(
                  textOutput("metricDescription"),
                  plotOutput("metricPlot"),
                  tableOutput("filteredSongs")),
-        tabPanel("Introducation", uiOutput("introducation")),
+        tabPanel("Data Reference", uiOutput("reference")),
         tabPanel("Genres", plotOutput("genrePlot")),
         tabPanel("Top Tracks", tableOutput("topTracks")),
         tabPanel("Listening Trends", plotOutput("timePlot")),
@@ -164,14 +164,14 @@ server <- function(input, output, session) {
       labs(title = "Listening Time Trends", x = "Date", y = "Time Spent")
   })
   
-  # Introducation the data set
-  output$introducation <- renderText({HTML("<div style='font-size: 20px; line-height: 1.5;'>
+  # Introduce the data set
+  output$reference <- renderText({HTML("<div style='font-size: 12px; line-height: 1.5;'>
      This dataset contains a comprehensive list of the most famous songs of 2023 as listed on Spotify.<br>
      The dataset offers a wealth of features beyond what is typically available in similar datasets.<br> 
      It provides insights into each song's attributes, popularity, and presence on various music platforms.<br> 
      The dataset includes information such as <strong> track name, artist(s) name, release date, Spotify playlists and charts, streaming statistics</strong> and so on.<br>
-     However, we may only use some of features for our project to analysis the user behavior.<br><br><br><br><br>
-      <span style='font-size: 12px;'>Sources link: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023/data </span></div>"
+     However, we may only use some of features for our project to analysis the user behavior.<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+      <span style='font-size: 10px;'>Sources link: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023/data </span></div>"
   )})
   
 }
