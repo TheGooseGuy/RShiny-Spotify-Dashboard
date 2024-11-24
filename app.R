@@ -7,75 +7,124 @@
 #    https://shiny.posit.co/
 
 library(shiny)
-library(Rspotify)
 library(spotifyr)
-library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(lubridate)
+library(shinythemes)
 
-# Load the reference data set and preprocess it
-data_reference = read_csv("C:/Users/Administrator/Desktop/spotify-2023.csv")
-data_reference$streams = as.numeric(data_reference$streams)
+tabs_ui <- tabsetPanel(
+  tags$style(HTML("
+    body {
+      background-color: #100000; /* Dark background */
+      color: #FFFFFF; /* White text */
+    }
+    .nav-tabs > li > a, .nav-tabs > li > a:focus, .nav-tabs > li > a:hover {
+      color: #FFFFFF; /* White text for tab titles */
+    }
+    .nav-tabs > li.active > a, .nav-tabs > li.active > a:focus, .nav-tabs > li.active > a:hover {
+      color: #FFFFFF; /* White text for active tab title */
+      background-color: #444444; /* Optional: dark background for active tab */
+    }
+  ")),
+  tabPanel("Metrics Exploration", 
+           textOutput("metricDescription"),
+           plotOutput("metricPlot"),
+           tableOutput("filteredSongs")),
+  tabPanel("Summary", textOutput("summary")),
+  tabPanel("Genres", plotOutput("genrePlot")),
+  tabPanel("Top Tracks", tableOutput("topTracks")),
+  tabPanel("Listening Trends",
+           plotOutput("listeningTrendsPlot"),
+           p("This chart shows how your listening habits have changed over time."))
+)
 
-# Get the top 10 streams
-top10_streams_list = data_reference %>% arrange(desc(streams)) %>% 
-  slice_head(n = 10) %>% select(track_name,'artist(s)_name',streams)
-colnames(top10_streams_list) = c("track_name", "artist_name", "streams")
 
-# Get the top 10 spotify playlists
-top10_spotify_playlists = data_reference %>% arrange(desc(in_spotify_playlists)) %>% 
-  slice_head(n = 10) %>% select(track_name,'artist(s)_name',in_spotify_playlists)
-colnames(top10_spotify_playlists) = c("track_name", "artist_name", "spotify_playlists")
-
-# Fetch audio features for a user's top tracks
-#tracks_audio_features <- get_audio_features(track_ids = tracks$id, authorization = access_token)
-
-# Merge audio features with track data
-#track_data <- tracks %>%
-#    left_join(tracks_audio_features, by = c("id" = "id"))
+main_ui <- navbarPage(
+  title = tags$img(src = "spotify_logo.png", height = "30px"),  # Add Spotify logo
+  theme = shinythemes::shinytheme("cosmo"),  # Apply a dark theme
+  tags$style(HTML("
+    body {
+      background-color: #100000; /* Dark gray background */
+      color: #FFFFFF; /* White text */
+    }
+    .sidebar {
+      background-color: #100000; /* Dark blue-gray background */
+      color: #ffffff; /* White text */
+    }
+    /* Spotify Green checkbox background when checked */
+    .form-check-input:checked {
+      background-color: #1DB954 !important; /* Spotify Green */
+      border-color: #1DB954 !important;
+    }
+    /* Focus state when clicking on the checkbox */
+    .form-check-input:focus {
+      border-color: #1DB954 !important; /* Focus border color */
+    }
+    /* General checkbox styles */
+    .form-check-input {
+      color: #1DB954 !important; /* Checkbox border */
+      background-color: #1DB954; /* Unchecked background */
+    }
+    /* Label for checkboxes - set color to white */
+    .form-check-label {
+      color: #FFFFFF !important;
+    }
+    /* Custom checkbox styles for when the user hovers over the checkbox */
+    .form-check-input:hover {
+      background-color: #1DB954 !important; /* Hover state */
+      border-color: #1DB954 !important;
+    }
+")),
+  tabPanel("Dashboard",
+           icon = icon("fa-solid fa-user"),
+           sidebarLayout(
+             sidebarPanel(
+               class = "sidebar",
+               textInput("token", "Enter your Spotify Token:", ""),
+               actionButton("analyze", "Lock In"),
+               hr(),
+               h3("Analysis Options"),
+               checkboxInput("show_genres", "Show Genre Analysis", TRUE),
+               checkboxInput("show_tracks", "Show Most Listened Tracks", TRUE),
+               checkboxInput("show_time", "Show Listening Time Trends", TRUE),
+               selectInput("metric", "Choose a Metric:", 
+                           choices = c("Speechiness", "Danceability", "Energy", "Valence")),
+               sliderInput("metricRange", "Select Metric Range:", 
+                           min = 0, max = 1, value = c(0.4, 0.6)),
+               actionButton("filter", "Filter Songs")
+             ),
+             mainPanel(tabs_ui)  # Use `tabs_ui` here
+           )
+  ),
+  tabPanel("Top Pick 2023",
+           icon = icon("arrow-down-wide-short"),
+           tabsetPanel(
+             tabPanel("Introduction",
+                   HTML("")   
+                       
+             ),
+           tabPanel("Top 10 Streams",
+                   h3("202x Top 10 Tracks by Streams"),
+                   htmlOutput("topstreamsummary"),
+                   plotOutput("topstreamplot")),
+           
+           tabPanel("Top 10 playlists",
+                    h3("202x Top 10 Tracks by Spotify Playlists"),
+                    htmlOutput('topplaylistssummary'),
+                    plotOutput("topplaylistsplot")))
+                      ),
+  tabPanel("Listening Trends", 
+           icon = icon("arrow-trend-up"),
+           plotOutput("listeningTrendsPlot")),
+  tabPanel("Playlist Generate",
+           icon = icon("list"))
+)
 
 
 ui <- fluidPage(
-  titlePanel("Spotify User Behavior Analysis"),
-  
-  sidebarLayout(
-    sidebarPanel(
-      textInput("token", "Enter your Spotify Token:", ""),
-      actionButton("analyze", "Analyze My Data"),
-      hr(),
-      h3("Analysis Options"),
-      checkboxInput("show_genres", "Show Genre Analysis", TRUE),
-      checkboxInput("show_tracks", "Show Most Listened Tracks", TRUE),
-      checkboxInput("show_time", "Show Listening Time Trends", TRUE),
-      selectInput("metric", "Choose a Metric:", 
-                  choices = c("Speechiness", "Danceability", "Energy", "Valence")),
-      sliderInput("metricRange", "Select Metric Range:", 
-                  min = 0, max = 1, value = c(0.4, 0.6)),
-      actionButton("filter", "Filter Songs")
-    ),
-    
-    mainPanel(
-      tabsetPanel(
-        tabPanel("Metrics Exploration", 
-                 textOutput("metricDescription"),
-                 plotOutput("metricPlot"),
-                 tableOutput("filteredSongs")),
-        tabPanel("Data Reference", uiOutput("reference")),
-        tabPanel("Genres", plotOutput("genrePlot")),
-        tabPanel("Top Tracks", tableOutput("topTracks")),
-        tabPanel("Listening Trends", plotOutput("timePlot")),
-        tabPanel(
-          "Listening Trends",
-          plotOutput("listeningTrendsPlot"),
-          p("This chart shows how your listening habits have changed over time, including the number of songs listened and the total listening duration.")
-        ),
-        tabPanel("Summary", textOutput("summary")),
-      )
-    )
-  )
+  main_ui
 )
-
 
 server <- function(input, output, session) {
   user_data <- reactiveVal()
@@ -178,41 +227,24 @@ server <- function(input, output, session) {
       geom_line() +
       labs(title = "Listening Time Trends", x = "Date", y = "Time Spent")
   })
-  
-  # Introduce the data set
-  output$reference <- renderUI({
-     introducation = "<div style='font-size: 11.5px; line-height: 1.5;'>
-     The 2023 spotify dataset contains a comprehensive list of the most famous songs of 2023 as listed on Spotify.<br>
-     The dataset offers a wealth of features beyond what is typically available in similar datasets.<br> 
-     It provides insights into each song's attributes, popularity, and presence on various music platforms.<br> 
-     The dataset includes information such as <strong> track name, artist(s) name, release date, Spotify playlists and charts, streaming statistics</strong> and so on.<br><br>
-     <strong>Top 10 Tracks by Streams:</strong><br><br>"
-     
-     top10_streams = paste0(lapply(1:nrow(top10_streams_list),function(i){
-       sprintf("%d. <strong>%s</strong> by %s with %s streams<br>",
-               i,
-               top10_streams_list$track_name[i],
-               top10_streams_list$artist_name[i],
-               format(as.numeric(top10_streams_list$streams[i])))
-     }),
-     collapse = "")
-     
-     top10_spotifyplaylists = paste0(lapply(1:nrow(top10_spotify_playlists),function(i){
-       sprintf( "%d. <strong>%s</strong> by %s included in %s Spotify playlists<br>",
-               i,
-               top10_spotify_playlists$track_name[i],
-               top10_spotify_playlists$artist_name[i],
-               format(as.numeric(top10_spotify_playlists$spotify_playlists[i])))
-     }),
-     collapse = "")
-     
-     HTML(paste0(introducation,top10_streams,
-                 "<br><strong>Top 10 Tracks by Spotify Playlists:</strong><br><br>",
-                 top10_spotifyplaylists,
-                 "<br><br><br><span style='font-size: 10px;'>Sources link: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023/data </span></div>"))
+
+  # Top Pick 2023 output
+  output$topstreamsummary = renderUI({
+    # summary from pre-analyzed data
+  })
+  output$topstreamplot = renderPlot({
+    # plot
   })
   
+  output$topplaylistssummary = renderUI({
+    # summary from pre-analyzed data
+  })
+  output$topplaylistsp1ot = renderPlot({
+    # plot
+  })
 }
+# Run the application 
+shinyApp(ui = ui, server = server)
 
 # Run the application 
 shinyApp(ui = ui, server = server)
