@@ -21,22 +21,46 @@ tabs_ui <- tabsetPanel(
     }
     .nav-tabs > li > a, .nav-tabs > li > a:focus, .nav-tabs > li > a:hover {
       color: #FFFFFF; /* White text for tab titles */
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
     }
     .nav-tabs > li.active > a, .nav-tabs > li.active > a:focus, .nav-tabs > li.active > a:hover {
       color: #FFFFFF; /* White text for active tab title */
       background-color: #444444; /* Optional: dark background for active tab */
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
     }
+    input[type='checkbox'] {
+      accent-color: #1DB954; /* Changes the check color */
+      background-color: black; /* Changes the box color */
+    }
+    input[type='checkbox']:checked {
+      background-color: #1DB954; /* Box color when checked */
+    }
+    .nav-tabs .nav-link {
+      border-radius: 10px 10px 0 0; /* Round corners of tab buttons */
+      margin-right: 5px;  /* Spacing between tabs */
+      border: 1px solid #007bff; /* Tab border color */
+      padding: 8px 15px; /* Padding inside tabs */
+      color: #007bff; /* Text color */
+    }
+    
+    .sidebar {
+      border-radius: 10px
+    }
+    
   ")),
   tabPanel("Metrics Exploration", 
            textOutput("metricDescription"),
            plotOutput("metricPlot"),
-           tableOutput("filteredSongs")),
-  tabPanel("Summary", textOutput("summary")),
-  tabPanel("Genres", plotOutput("genrePlot")),
-  tabPanel("Top Tracks", tableOutput("topTracks")),
+           tableOutput("filteredSongs"),
+           class="inner-tab"),
+  tabPanel("Summary", textOutput("summary"), class="inner-tab"),
+  tabPanel("Genres", plotOutput("genrePlot"), class="inner-tab"),
+  tabPanel("Top Tracks", tableOutput("topTracks"), class="inner-tab"),
   tabPanel("Listening Trends",
            plotOutput("listeningTrendsPlot"),
-           p("This chart shows how your listening habits have changed over time."))
+           p("This chart shows how your listening habits have changed over time."), class="inner-tab")
 )
 
 
@@ -75,6 +99,8 @@ main_ui <- navbarPage(
       background-color: #1DB954 !important; /* Hover state */
       border-color: #1DB954 !important;
     }
+    
+    
 ")),
   tabPanel("Dashboard",
            icon = icon("fa-solid fa-user"),
@@ -96,6 +122,7 @@ main_ui <- navbarPage(
              ),
              mainPanel(tabs_ui)  # Use `tabs_ui` here
            )
+           
   ),
   tabPanel("Top Pick 2023",
            icon = icon("arrow-down-wide-short"),
