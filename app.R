@@ -99,8 +99,29 @@ main_ui <- navbarPage(
       background-color: #1DB954 !important; /* Hover state */
       border-color: #1DB954 !important;
     }
-    
-    
+    /* Spotify Green slider track and handle */
+    .irs-bar {
+      background: #1DB954 !important; /* Spotify Green for the slider bar */
+      border-color: #1DB954 !important; /* Spotify Green for the border */
+    }
+    .irs-bar-edge {
+      background: #1DB954 !important; /* Green color for the edges */
+      border-color: #1DB954 !important;
+    }
+    .irs-single {
+      background: #1DB954 !important; /* Green for the selection tooltip */
+      color: #ffffff !important; /* White text inside tooltip */
+    }
+    .irs-slider {
+      background: #1DB954 !important; /* Green for the draggable handle */
+      border-color: #1DB954 !important;
+    }
+    .irs-grid-pol {
+      background: #FFFFFF !important; /* Change grid lines to white */
+    }
+    .irs-grid-text {
+      color: #FFFFFF !important; /* Change grid text to white */
+    }
 ")),
   tabPanel("Dashboard",
            icon = icon("fa-solid fa-user"),
@@ -153,125 +174,106 @@ ui <- fluidPage(
   main_ui
 )
 
-server <- function(input, output, session) {
-  user_data <- reactiveVal()
-  observeEvent(input$analyze, {
-    req(input$token)
-    
-    access_token <- input$token
-    
-    # Fetch top tracks
-    tracks <- get_my_top(type = "tracks", time_range = "long_term", limit = 50, authorization = access_token)
-    artists <- get_my_top(type = "artists", time_range = "long_term", limit = 50, authorization = access_token)
-    
-    # Process data
-    genres <- unlist(artists$genres)
-    genre_count <- as.data.frame(table(genres))
-    genre_count <- genre_count[order(-genre_count$Freq), ]
-    
-    total_time <- sum(tracks$duration_ms) / (1000 * 60)  # Convert ms to minutes
-    
-    # Store results
-    user_data(list(
-      tracks = tracks,
-      artists = artists,
-      genres = genre_count,
-      total_time = total_time
-    ))
-  })
-  
-  observeEvent(input$analyze, {
-    req(input$token)
-    access_token <- input$token
-    
-    # Fetch recently played tracks or user's top tracks
-    tracks <- get_my_top(type = "tracks", time_range = "long_term", limit = 50, authorization = access_token)
-    
-    # Add a timestamp approximation
-    tracks$played_at <- tracks$added_at  # Replace 'added_at' with actual timestamps if available
-    
-    # Store data for reactive use
-    user_data(tracks)
-  })
-  trends_data <- reactive({
-    req(user_data())
-    
-    user_data() %>%
-      mutate(month = floor_date(as.Date(played_at), "month")) %>%  # Group by month
-      group_by(month) %>%
-      summarize(
-        total_songs = n(),                           # Total songs listened
-        total_duration = sum(duration_ms, na.rm = TRUE) / 60000   # Total duration in minutes
-      )
-  })
-  output$listeningTrendsPlot <- renderPlot({
-    req(trends_data())
-    
-    ggplot(trends_data(), aes(x = month)) +
-      geom_line(aes(y = total_songs), color = "blue", size = 1) +  # Line for total songs
-      geom_bar(aes(y = total_duration), stat = "identity", fill = "lightblue", alpha = 0.5) +  # Bars for duration
-      labs(
-        title = "User's Listening Trends Over Time",
-        x = "Month",
-        y = "Total Songs / Listening Time (min)"
-      ) +
-      theme_minimal()
-  })
-  
-  # Output Summary
-  output$summary <- renderText({
-    data <- user_data()
-    req(data)
-    paste0("Total time spent listening: ", round(data$total_time, 2), " minutes")
-  })
-  
-  # Genre Analysis Plot
-  output$genrePlot <- renderPlot({
-    req(input$show_genres)
-    data <- user_data()
-    req(data)
-    ggplot(data$genres, aes(x = reorder(genres, Freq), y = Freq)) +
-      geom_bar(stat = "identity", fill = "steelblue") +
-      coord_flip() +
-      labs(title = "Top Genres", x = "Genres", y = "Count")
-  })
-  
-  # Top Tracks Table
-  output$topTracks <- renderTable({
-    req(input$show_tracks)
-    data <- user_data()
-    req(data)
-    data$tracks %>%
-      select(name, artists = artists.name, popularity) %>%
-      arrange(-popularity) %>%
-      head(10)
-  })
-  
-  # Listening Time Trends (Placeholder for now)
-  output$timePlot <- renderPlot({
-    req(input$show_time)
-    ggplot() +
-      geom_line() +
-      labs(title = "Listening Time Trends", x = "Date", y = "Time Spent")
-  })
 
-  # Top Pick 2023 output
-  output$topstreamsummary = renderUI({
-    # summary from pre-analyzed data
-  })
-  output$topstreamplot = renderPlot({
-    # plot
-  })
-  
-  output$topplaylistssummary = renderUI({
-    # summary from pre-analyzed data
-  })
-  output$topplaylistsp1ot = renderPlot({
-    # plot
-  })
+server <- function(input, output, session) {
+    # Reactive value to store user data
+    user_data <- reactiveVal()
+    
+    # Fetch and process Spotify data on 'Analyze' button click
+    observeEvent(input$analyze, {
+        req(input$token)  # Ensure token is provided
+        
+        access_token <- input$token
+        
+        tryCatch({
+            # Fetch data from Spotify API
+            tracks <- get_my_top_artists_or_tracks(type = "tracks", time_range = "long_term", limit = 50, authorization = access_token)
+            artists <- get_my_top_artists_or_tracks(type = "artists", time_range = "long_term", limit = 50, authorization = access_token)
+            
+            # Process genres
+            genres <- unlist(artists$genres)
+            genre_count <- as.data.frame(table(genres))
+            genre_count <- genre_count[order(-genre_count$Freq), ]
+            
+            # Calculate total listening time
+            total_time <- sum(tracks$duration_ms, na.rm = TRUE) / (1000 * 60)  # Convert ms to minutes
+            
+            # Store results in a reactive value
+            user_data(list(
+                tracks = tracks,
+                artists = artists,
+                genres = genre_count,
+                total_time = total_time
+            ))
+            
+            # Notify success
+            showNotification("Data successfully fetched!", type = "message")
+        }, error = function(e) {
+            # Handle errors
+            showNotification(paste("Error:", e$message), type = "error")
+        })
+    })
+    
+    # Reactive data for trends
+    trends_data <- reactive({
+        req(user_data())
+        
+        user_data()$tracks %>%
+            mutate(month = floor_date(as.Date(added_at), "month")) %>%  # Adjust for available timestamp field
+            group_by(month) %>%
+            summarize(
+                total_songs = n(),
+                total_duration = sum(duration_ms, na.rm = TRUE) / 60000  # Duration in minutes
+            )
+    })
+    
+    # Listening Trends Plot
+    output$listeningTrendsPlot <- renderPlot({
+        req(trends_data())
+        
+        ggplot(trends_data(), aes(x = month)) +
+            geom_line(aes(y = total_songs), color = "blue", size = 1) +
+            geom_bar(aes(y = total_duration), stat = "identity", fill = "lightblue", alpha = 0.5) +
+            labs(
+                title = "User's Listening Trends Over Time",
+                x = "Month",
+                y = "Total Songs / Listening Time (min)"
+            ) +
+            theme_minimal()
+    })
+    
+    # Output for total listening time summary
+    output$summary <- renderText({
+        req(user_data())
+        paste0("Total time spent listening: ", round(user_data()$total_time, 2), " minutes")
+    })
+    
+    # Genre Analysis Plot
+    output$genrePlot <- renderPlot({
+        req(input$show_genres, user_data())
+        ggplot(user_data()$genres, aes(x = reorder(genres, Freq), y = Freq)) +
+            geom_bar(stat = "identity", fill = "steelblue") +
+            coord_flip() +
+            labs(title = "Top Genres", x = "Genres", y = "Count")
+    })
+    
+    # Top Tracks Table
+    output$topTracks <- renderTable({
+        req(input$show_tracks, user_data())
+        user_data()$tracks %>%
+            select(name, artists = artists.name, popularity) %>%
+            arrange(-popularity) %>%
+            head(10)
+    })
+    
+    # Placeholder for additional trends
+    output$timePlot <- renderPlot({
+        req(input$show_time)
+        ggplot() +
+            geom_line() +
+            labs(title = "Listening Time Trends", x = "Date", y = "Time Spent")
+    })
 }
-# Run the application 
-shinyApp(ui = ui, server = server)
 
 # Run the application 
 shinyApp(ui = ui, server = server)
