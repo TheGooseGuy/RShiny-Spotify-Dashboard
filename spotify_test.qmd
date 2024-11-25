@@ -1,0 +1,86 @@
+---
+title: "Spotify test"
+format: html
+editor: visual
+---
+
+http://127.0.0.1:8888/callback
+
+```{r}
+library("spotifyr")
+library(dplyr)
+library(purrr)
+library(knitr)
+library(lubridate)
+```
+
+
+```{r}
+Sys.setenv(SPOTIFY_CLIENT_ID = '4cc947da074c483a83711e8d9ecb2db5')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = '62146858c5824b79b93ab09b39717bb2')
+Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/") 
+access_token <- get_spotify_access_token()
+
+```
+
+
+```{r}
+beatles <- get_artist_audio_features('the beatles')
+beatles %>% 
+    count(key_mode, sort = TRUE) %>% 
+    head(5)
+```
+
+
+
+```{r}
+get_my_recently_played(limit = 5) %>% 
+    mutate(
+        artist.name = map_chr(track.artists, function(x) x$name[1]),
+        played_at = as_datetime(played_at)
+        ) %>% 
+    select(
+      all_of(c("track.name", "artist.name", "track.album.name", "played_at", "track.id"))
+      ) 
+```
+
+```{r}
+get_my_devices(authorization = get_spotify_authorization_code())
+
+```
+
+
+```{r}
+#pause playback
+pause_my_playback(
+  device_id = "de638864a1e00684a918b0c3de4487365c94ecc0",
+  authorization = get_spotify_authorization_code()
+)
+
+```
+
+```{r}
+
+track <- get_track(id="19FcrKMpCp4bZOxcPkTMsZ", market = NULL, authorization = get_spotify_access_token())
+album_art_url <- track$album$images[[1]]$url
+print(album_art_url)
+```
+
+
+```{r}
+#start playback
+start_my_playback(
+  device_id = NULL,
+  context_uri = NULL,
+  uris = NULL,
+  offset = NULL,
+  position_ms = NULL,
+  authorization = get_spotify_authorization_code()
+)
+```
+
+
+
+
+
+
