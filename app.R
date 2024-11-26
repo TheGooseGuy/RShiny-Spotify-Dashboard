@@ -22,157 +22,232 @@ get_audio_features <- function(tracks) {
     return(audio_features)
 }
 
+
 dashboard_ui <- tabsetPanel(
-  tags$style(HTML("
-    body {
-      background-color: #100000; /* Dark background */
-      color: #FFFFFF; /* White text */
-    }
-    .nav-tabs > li > a, .nav-tabs > li > a:focus, .nav-tabs > li > a:hover {
-      color: #FFFFFF; /* White text for tab titles */
-      border-top-left-radius: 10px;
-      border-top-right-radius: 10px;
-    }
-    .nav-tabs > li.active > a, .nav-tabs > li.active > a:focus, .nav-tabs > li.active > a:hover {
-      color: #FFFFFF; /* White text for active tab title */
-      background-color: #444444; /* Optional: dark background for active tab */
-      border-top-left-radius: 10px;
-      border-top-right-radius: 10px;
-    }
-    input[type='checkbox'] {
-      accent-color: #1DB954; /* Changes the check color */
-      background-color: black; /* Changes the box color */
-    }
-    input[type='checkbox']:checked {
-      background-color: #1DB954; /* Box color when checked */
-    }
-    .nav-tabs .nav-link {
-      border-radius: 10px 10px 0 0; /* Round corners of tab buttons */
-      margin-right: 5px;  /* Spacing between tabs */
-      border: 1px solid #007bff; /* Tab border color */
-      padding: 8px 15px; /* Padding inside tabs */
-      color: #007bff; /* Text color */
-    }
-    
-    .sidebar {
-      border-radius: 10px
-    }
-  ")),
-  # Metrics Exploration
-  tabPanel(
-      title = "Metrics Exploration",
-      fluidPage(
-          card(
-              h3("Metrics Exploration"),
-              fluidRow(
-                  column(4, 
-                         sliderInput("danceability", "Danceability:", min = 0, max = 1, value = c(0.4, 0.8))),
-                  column(4, 
-                         sliderInput("energy", "Energy:", min = 0, max = 1, value = c(0.4, 0.8))),
-                  column(4, 
-                         sliderInput("valence", "Valence:", min = 0, max = 1, value = c(0.4, 0.8)))
-              ),
-              actionButton("apply_filters", "Apply Filters")
-          ),
-          card(
-              DT::dataTableOutput("filtered_songs_table")
-          )
-      )
-  ),
-  tabPanel("Summary", textOutput("summary"), class="inner-tab"),
-  tabPanel("Genres", plotOutput("genrePlot"), class="inner-tab"),
-  tabPanel("Top Tracks", tableOutput("topTracks"), class="inner-tab"),
+  tabPanel("Summary",
+           icon = icon("fa-regular fa-file"),
+           textOutput("summary"), class="inner-tab"),
+  
+  tabPanel("Top Tracks",
+           icon = icon("music"),
+           fluidPage(
+               card(
+                   h3("Metrics Exploration"),
+                   fluidRow(
+                       column(6, 
+                              sliderInput("danceability", "Danceability:", 
+                                          min = 0, max = 1, value = c(0.4, 0.8))),
+                       column(6, 
+                              sliderInput("energy", "Energy:", 
+                                          min = 0, max = 1, value = c(0.4, 0.8)))
+                   ),
+                   fluidRow(
+                       column(6, 
+                              sliderInput("valence", "Valence:", 
+                                          min = 0, max = 1, value = c(0.4, 0.8))),
+                       column(6, 
+                              sliderInput("speechiness", "Speechiness:", 
+                                          min = 0, max = 1, value = c(0.2, 0.6)))
+                   ),
+                   actionButton("apply_filters", "Apply Filters")
+               ),
+               card(
+                   DT::dataTableOutput("filtered_songs_table")
+                   )
+               )
+           ),
+  
+  tabPanel("Genres", 
+           icon = icon("bars-staggered"),
+           plotOutput("genrePlot"), class="inner-tab"),
   tabPanel("Listening Trends",
+           icon = icon("arrow-trend-up"),
            plotOutput("listeningTrendsPlot"),
            p("This chart shows how your listening habits have changed over time."), class="inner-tab")
 )
     
 
 main_ui <- navbarPage(
-    windowTitle = "My Spotify App",
-  title = tags$img(src = "spotify_logo.png", height = "30px"),  # Add Spotify logo
+  title = tags$img(src = "spotify_logo.png", height = "32px"),  # Add Spotify logo
   theme = shinythemes::shinytheme("cosmo"),  # Apply a dark theme
   tags$style(HTML("
-    body {
+      body {
       background-color: #100000; /* Dark gray background */
       color: #FFFFFF; /* White text */
-    }
-    .sidebar {
+      }
+      .sidebar {
       background-color: #100000; /* Dark blue-gray background */
       color: #ffffff; /* White text */
-    }
-    /* Spotify Green checkbox background when checked */
-    .form-check-input:checked {
+      }
+      
+      /* Spotify Green checkbox background when checked */
+      .form-check-input:checked {
       background-color: #1DB954 !important; /* Spotify Green */
       border-color: #1DB954 !important;
-    }
-    /* Focus state when clicking on the checkbox */
-    .form-check-input:focus {
+      }
+      
+      /* Focus state when clicking on the checkbox */
+      .form-check-input:focus {
       border-color: #1DB954 !important; /* Focus border color */
-    }
-    /* General checkbox styles */
-    .form-check-input {
+      }
+      /* General checkbox styles */
+      .form-check-input {
       color: #1DB954 !important; /* Checkbox border */
       background-color: #1DB954; /* Unchecked background */
-    }
-    /* Label for checkboxes - set color to white */
-    .form-check-label {
+      }
+      
+      /* Label for checkboxes - set color to white */
+      .form-check-label {
       color: #FFFFFF !important;
-    }
-    /* Custom checkbox styles for when the user hovers over the checkbox */
-    .form-check-input:hover {
+      }
+      
+      /* Custom checkbox styles for when the user hovers over the checkbox */
+      .form-check-input:hover {
       background-color: #1DB954 !important; /* Hover state */
       border-color: #1DB954 !important;
-    }
-    /* Spotify Green slider track and handle */
-    .irs-bar {
+      }
+      
+      /* Spotify Green slider track and handle */
+      .irs-bar {
       background: #1DB954 !important; /* Spotify Green for the slider bar */
       border-color: #1DB954 !important; /* Spotify Green for the border */
-    }
-    .irs-bar-edge {
+      }
+      .irs-bar-edge {
       background: #1DB954 !important; /* Green color for the edges */
       border-color: #1DB954 !important;
-    }
-    .irs-single {
+      }
+      .irs-single {
       background: #1DB954 !important; /* Green for the selection tooltip */
       color: #ffffff !important; /* White text inside tooltip */
-    }
-    .irs-slider {
+      }
+      .irs-slider {
       background: #1DB954 !important; /* Green for the draggable handle */
       border-color: #1DB954 !important;
-    }
-    .irs-grid-pol {
+      }
+      .irs-grid-pol {
       background: #FFFFFF !important; /* Change grid lines to white */
-    }
-    .irs-grid-text {
+      }
+      .irs-grid-text {
       color: #FFFFFF !important; /* Change grid text to white */
+      }
+      .nav-pills > li > a {
+        background-color: black; /* Set menu background to black */
+        color: white !important; /* Set menu text color to white */
+        font-weight: bold;       /* Make the font bold */
     }
-")),
-  tabPanel("Dashboard",
+    .nav-pills > li > a:hover, 
+    .nav-pills > li.active > a {
+        background-color: #444;  /* Darker gray for hover/active state */
+        color: white !important; /* Keep text white */
+    }
+    /* Set the menu container (outer frame) to black */
+    .navlist-panel {
+        background-color: black;
+        border: none; /* Remove any borders */
+    }
+    
+    /* Set menu items' default background and text */
+    .nav-pills > li > a {
+        background-color: black; /* Black background */
+        color: white !important; /* White text */
+        font-weight: bold;       /* Bold font */
+    }
+    
+    /* Highlight on hover */
+    .nav-pills > li > a:hover {
+        background-color: #444; /* Dark gray for hover */
+        color: white !important;
+    }
+
+    /* Active tab customization */
+    .nav-pills > li.active > a {
+        background-color: #1DB954 !important; /* Spotify green */
+        color: white !important;
+        font-weight: bold;
+    }
+
+    /* Remove any padding/margin on the outer frame */
+    .navlist-panel .tab-content {
+        background-color: black; /* Ensure content background matches */
+    }
+    
+    /* Add spacing between menu tabs */
+    .nav-pills > li {
+        margin-bottom: 20px; /* Space between tabs */
+    }
+
+    /* Adjust padding for better alignment */
+    .nav-pills > li > a {
+        padding: 20px 20px; /* Adjust padding inside tabs */
+        text-align: center; /* Center align text */
+    }
+    /* Navbar container background */
+.navbar {
+    background-color: black !important; /* Black background */
+    border: none; /* Remove border */
+}
+
+/* Navbar tab links */
+.navbar-nav > li > a {
+    color: white !important; /* White text for all tabs */
+    font-weight: bold; /* Bold text for tabs */
+    padding: 15px 30px; /* Increase padding for better spacing */
+    text-align: center; /* Center-align text */
+}
+
+/* Navbar hover effect */
+.navbar-nav > li > a:hover {
+    background-color: #444 !important; /* Dark gray background on hover */
+    color: white !important; /* Keep text white */
+}
+
+/* Active tab style */
+.navbar-nav > li.active > a {
+    background-color: #1DB954 !important; /* Spotify green background for active tab */
+    color: white !important; /* White text for active tab */
+    font-weight: bold; /* Bold font for active tab */
+}
+
+/* Spread out navbar tabs */
+.navbar-nav {
+    display: flex;
+    justify-content: space-around; /* Spread tabs evenly */
+}
+
+/* Adjust navbar brand (title/logo) */
+.navbar-header .navbar-brand {
+    color: white !important; /* White color for the brand name */
+    font-weight: bold; /* Bold font for the brand name */
+}
+
+                      ")),
+          tabPanel("Dashboard",
            icon = icon("fa-solid fa-user"),
            fluidRow(
              column(3, class = "sidebar",
-                    style = "border: 2px solid white; padding: 15px; border-radius: 10px;", # White frame style
+                    #style = "border: 2px solid white; padding: 15px; border-radius: 10px;", # White frame style
                     textInput("CID", "Enter your Client ID:", ""),
                     textInput("CST", "Enter your Client Secret:", ""),
                     textInput("RURL", "Enter your Redirect URL:", "http://localhost:1410/"),
-                  textInput("token", "Enter your Spotify Token:", ""),
-                  actionButton("analyze", "Lock In"),
+                    textInput("token", "Enter your Spotify Token:", ""),
+                    actionButton("analyze", "Lock In"),
                   hr(),
                   h3("Analysis Options"),
                   checkboxInput("show_genres", "Show Genre Analysis", TRUE),
                   checkboxInput("show_tracks", "Show Most Listelned Tracks", TRUE),
                   checkboxInput("show_time", "Show Listening Time Trends", TRUE),
-                  selectInput("metric", "Choose a Metric:", 
-                              choices = c("Speechiness", "Danceability", "Energy", "Valence")),
-                  sliderInput("metricRange", "Select Metric Range:", 
-                              min = 0, max = 1, value = c(0.4, 0.6)),
-                  actionButton("filter", "Filter Songs")),
+                  #selectInput("metric", "Choose a Metric:", 
+                  #            choices = c("Speechiness", "Danceability", "Energy", "Valence")),
+                  #sliderInput("metricRange", "Select Metric Range:", 
+                  #            min = 0, max = 1, value = c(0.4, 0.6)),
+                  #actionButton("filter", "Filter Songs")
+                  ),
              column(9, 
                     dashboard_ui),
              )
            ),
-  tabPanel("Top Pick 2023",
+      
+        tabPanel("Top Pick 2023",
            icon = icon("arrow-down-wide-short"),
            tabsetPanel(
                tabPanel("Introduction",
@@ -188,9 +263,7 @@ main_ui <- navbarPage(
                         htmlOutput('topplaylistssummary'),
                         plotOutput("topplaylistsplot")))
   ),
-  tabPanel("Listening Trends",  # Change this to some other feature as we have listening trends in personal dashboard.
-           icon = icon("arrow-trend-up"),
-           plotOutput("listeningTrendsPlot")),
+
   tabPanel("Audio Feature",
            sidebarLayout(
                sidebarPanel(textInput("spotify_token", "Enter your Spotify Token:"),
@@ -237,12 +310,78 @@ main_ui <- navbarPage(
                  actionButton("save_playlist", "Save Playlist", class = "btn-primary")
           )
       )
-  )
+  ),
+  tabPanel("Share this App",
+           icon = icon("arrow-up-right-from-square"),
+           ),
 )
 
 
+
 ui <- fluidPage(
-  main_ui
+    tags$style(HTML("
+   /* General body styling */
+body {
+  background-color: #100000; /* Dark background */
+  color: #FFFFFF; /* White text */
+  font-family: Arial, sans-serif; /* Use a clean, modern font */
+}
+
+/* Tab navigation styling */
+.nav-tabs > li > a, 
+.nav-tabs > li > a:focus, 
+.nav-tabs > li > a:hover {
+  color: #FFFFFF; /* White text for tab titles */
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  background-color: #222; /* Slightly lighter background for tabs */
+  padding: 10px 15px; /* Consistent padding for tabs */
+  margin-right: 5px; /* Spacing between tabs */
+  border: none; /* Remove any border on hover */
+}
+
+/* Active tab styling */
+.nav-tabs > li.active > a, 
+.nav-tabs > li.active > a:focus, 
+.nav-tabs > li.active > a:hover {
+  color: #FFFFFF; /* White text for active tab */
+  background-color: #1DB954; /* Spotify green for active tab */
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  font-weight: bold; /* Emphasize active tab */
+}
+
+/* Checkbox styling */
+input[type='checkbox'] {
+  accent-color: #1DB954; /* Spotify green for check color */
+  background-color: #222; /* Dark box color */
+  border-radius: 5px; /* Rounded corners for checkboxes */
+}
+
+input[type='checkbox']:checked {
+  background-color: #1DB954; /* Spotify green when checked */
+}
+
+/* Sidebar styling */
+.sidebar {
+  border-radius: 10px; /* Rounded corners */
+  padding: 15px; /* Add padding for better spacing */
+  background-color: #222; /* Match with tabs */
+  color: #FFFFFF; /* Ensure white text for sidebar */
+}
+
+/* Inner-tab styling */
+.inner-tab {
+  padding: 20px; /* Consistent padding for content */
+  background-color: #100000; /* Match with main background */
+  color: #FFFFFF; /* Ensure readability */
+  border: 0px solid #444; /* Subtle border for content separation */
+  border-radius: 10px; /* Rounded corners */
+}
+
+                ")
+    ),
+    main_ui
 )
 
 
