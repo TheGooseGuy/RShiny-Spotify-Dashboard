@@ -194,53 +194,51 @@ main_ui <- navbarPage(
   tabPanel("Audio Feature",
            sidebarLayout(
                sidebarPanel(textInput("spotify_token", "Enter your Spotify Token:"),
-                            selectInput("artist", "Choose Artist for Tracks:", choices = c("Speechiness", "Danceability", "Energy", "Valence")),
+                            selectInput("artist3", "Choose Artist for Tracks:", choices = c("Speechiness", "Danceability", "Energy", "Valence")),
                             actionButton("generate_plot", "Generate Plot")
                             ),
                mainPanel(h3("Audio Feature Scatter Plot"),
                          plotlyOutput("scatter_plot"))
-           ))
- # I don't know why but once i add this section i get error
-#  tabPanel(title = "Audio Feature",
-#               tabPanel(
-#                   textInput("spotify_token", "Enter your Spotify Token:"),
-#                   selectInput("artist", "Choose Artist for Tracks:", choices = NULL, multiple = FALSE),
-#                   actionButton("generate_plot", "Generate Plot")
-#               ),
-#               
-#               tabPanel(
-#                   h3("Audio Feature Scatter Plot"),
-#                   plotlyOutput("scatter_plot")
-#               ))
- #  tabPanel(
- #     "Playlist Generate",
- #     icon = icon("list"),
- #     fluidPage(
- #         column(4, 
- #                h3("Customize Your Playlist"),
- #                selectInput("artist", "Choose Similar Artist:", 
- #                            choices = NULL, # Will be populated dynamically
- #                            multiple = FALSE),
- #                selectInput("mood", "Select Mood:", 
- #                            choices = c("Happy", "Sad", "Energetic", "Chill")),
- #                sliderInput("danceability", "Danceability:", 
- #                            min = 0, max = 1, value = c(0.4, 0.8)),
- #                sliderInput("energy", "Energy:", 
- #                            min = 0, max = 1, value = c(0.4, 0.8)),
- #                sliderInput("valence", "Valence (Mood):", 
- #                            min = 0, max = 1, value = c(0.4, 0.8)),
- #                sliderInput("popularity", "Track Popularity:", 
- #                            min = 0, max = 100, value = c(50, 100)),
- #                actionButton("generate_playlist", "Generate Playlist", class = "btn-success")
- #         ),
- #         column(8,
- #                h3("Generated Playlist"),
- #                tableOutput("playlist_table"), # To display playlist details
- #                actionButton("save_playlist", "Save Playlist", class = "btn-primary")
- #         )
- #     )
- # )
+           )),
+  tabPanel(title = "Audio Feature",
+               tabPanel(
+                   textInput("spotify_token", "Enter your Spotify Token:"),
+                   selectInput("artist1", "Choose Artist for Tracks:", choices = NULL, multiple = FALSE),
+                   actionButton("generate_plot", "Generate Plot")
+               ),
+               tabPanel(
+                   h3("Audio Feature Scatter Plot"),
+                   plotlyOutput("scatter_plot")
+               )),
+  tabPanel(
+     "Playlist Generate",
+      icon = icon("list"),
+      fluidPage(
+          column(4, 
+                 h3("Customize Your Playlist"),
+                 selectInput("artist2", "Choose Similar Artist:", 
+                             choices = NULL, # Will be populated dynamically
+                             multiple = FALSE),
+                 selectInput("mood", "Select Mood:", 
+                             choices = c("Happy", "Sad", "Energetic", "Chill")),
+                 sliderInput("danceability", "Danceability:", 
+                             min = 0, max = 1, value = c(0.4, 0.8)),
+                 sliderInput("energy", "Energy:", 
+                             min = 0, max = 1, value = c(0.4, 0.8)),
+                 sliderInput("valence", "Valence (Mood):", 
+                             min = 0, max = 1, value = c(0.4, 0.8)),
+                 sliderInput("popularity", "Track Popularity:", 
+                             min = 0, max = 100, value = c(50, 100)),
+                 actionButton("generate_playlist", "Generate Playlist", class = "btn-success")
+          ),
+          column(8,
+                 h3("Generated Playlist"),
+                 tableOutput("playlist_table"), # To display playlist details
+                 actionButton("save_playlist", "Save Playlist", class = "btn-primary")
+          )
+      )
   )
+)
 
 
 ui <- fluidPage(
