@@ -70,157 +70,6 @@ dashboard_ui <- tabsetPanel(
 main_ui <- navbarPage(
   title = tags$img(src = "spotify_logo.png", height = "32px"),  # Add Spotify logo
   theme = shinythemes::shinytheme("cosmo"),  # Apply a dark theme
-  tags$style(HTML("
-      body {
-      background-color: #100000; /* Dark gray background */
-      color: #FFFFFF; /* White text */
-      }
-      .sidebar {
-      background-color: #100000; /* Dark blue-gray background */
-      color: #ffffff; /* White text */
-      }
-      
-      /* Spotify Green checkbox background when checked */
-      .form-check-input:checked {
-      background-color: #1DB954 !important; /* Spotify Green */
-      border-color: #1DB954 !important;
-      }
-      
-      /* Focus state when clicking on the checkbox */
-      .form-check-input:focus {
-      border-color: #1DB954 !important; /* Focus border color */
-      }
-      /* General checkbox styles */
-      .form-check-input {
-      color: #1DB954 !important; /* Checkbox border */
-      background-color: #1DB954; /* Unchecked background */
-      }
-      
-      /* Label for checkboxes - set color to white */
-      .form-check-label {
-      color: #FFFFFF !important;
-      }
-      
-      /* Custom checkbox styles for when the user hovers over the checkbox */
-      .form-check-input:hover {
-      background-color: #1DB954 !important; /* Hover state */
-      border-color: #1DB954 !important;
-      }
-      
-      /* Spotify Green slider track and handle */
-      .irs-bar {
-      background: #1DB954 !important; /* Spotify Green for the slider bar */
-      border-color: #1DB954 !important; /* Spotify Green for the border */
-      }
-      .irs-bar-edge {
-      background: #1DB954 !important; /* Green color for the edges */
-      border-color: #1DB954 !important;
-      }
-      .irs-single {
-      background: #1DB954 !important; /* Green for the selection tooltip */
-      color: #ffffff !important; /* White text inside tooltip */
-      }
-      .irs-slider {
-      background: #1DB954 !important; /* Green for the draggable handle */
-      border-color: #1DB954 !important;
-      }
-      .irs-grid-pol {
-      background: #FFFFFF !important; /* Change grid lines to white */
-      }
-      .irs-grid-text {
-      color: #FFFFFF !important; /* Change grid text to white */
-      }
-      .nav-pills > li > a {
-        background-color: black; /* Set menu background to black */
-        color: white !important; /* Set menu text color to white */
-        font-weight: bold;       /* Make the font bold */
-    }
-    .nav-pills > li > a:hover, 
-    .nav-pills > li.active > a {
-        background-color: #444;  /* Darker gray for hover/active state */
-        color: white !important; /* Keep text white */
-    }
-    /* Set the menu container (outer frame) to black */
-    .navlist-panel {
-        background-color: black;
-        border: none; /* Remove any borders */
-    }
-    
-    /* Set menu items' default background and text */
-    .nav-pills > li > a {
-        background-color: black; /* Black background */
-        color: white !important; /* White text */
-        font-weight: bold;       /* Bold font */
-    }
-    
-    /* Highlight on hover */
-    .nav-pills > li > a:hover {
-        background-color: #444; /* Dark gray for hover */
-        color: white !important;
-    }
-
-    /* Active tab customization */
-    .nav-pills > li.active > a {
-        background-color: #1DB954 !important; /* Spotify green */
-        color: white !important;
-        font-weight: bold;
-    }
-
-    /* Remove any padding/margin on the outer frame */
-    .navlist-panel .tab-content {
-        background-color: black; /* Ensure content background matches */
-    }
-    
-    /* Add spacing between menu tabs */
-    .nav-pills > li {
-        margin-bottom: 20px; /* Space between tabs */
-    }
-
-    /* Adjust padding for better alignment */
-    .nav-pills > li > a {
-        padding: 20px 20px; /* Adjust padding inside tabs */
-        text-align: center; /* Center align text */
-    }
-    /* Navbar container background */
-.navbar {
-    background-color: black !important; /* Black background */
-    border: none; /* Remove border */
-}
-
-/* Navbar tab links */
-.navbar-nav > li > a {
-    color: white !important; /* White text for all tabs */
-    font-weight: bold; /* Bold text for tabs */
-    padding: 15px 30px; /* Increase padding for better spacing */
-    text-align: center; /* Center-align text */
-}
-
-/* Navbar hover effect */
-.navbar-nav > li > a:hover {
-    background-color: #444 !important; /* Dark gray background on hover */
-    color: white !important; /* Keep text white */
-}
-
-/* Active tab style */
-.navbar-nav > li.active > a {
-    background-color: #1DB954 !important; /* Spotify green background for active tab */
-    color: white !important; /* White text for active tab */
-    font-weight: bold; /* Bold font for active tab */
-}
-
-/* Spread out navbar tabs */
-.navbar-nav {
-    display: flex;
-    justify-content: space-around; /* Spread tabs evenly */
-}
-
-/* Adjust navbar brand (title/logo) */
-.navbar-header .navbar-brand {
-    color: white !important; /* White color for the brand name */
-    font-weight: bold; /* Bold font for the brand name */
-}
-
-                      ")),
           tabPanel("Dashboard",
            icon = icon("fa-solid fa-user"),
            fluidRow(
@@ -265,6 +114,7 @@ main_ui <- navbarPage(
   ),
 
   tabPanel("Audio Feature",
+           icon = icon('music'),
            sidebarLayout(
                sidebarPanel(textInput("spotify_token", "Enter your Spotify Token:"),
                             selectInput("artist3", "Choose Artist for Tracks:", choices = c("Speechiness", "Danceability", "Energy", "Valence")),
@@ -273,16 +123,6 @@ main_ui <- navbarPage(
                mainPanel(h3("Audio Feature Scatter Plot"),
                          plotlyOutput("scatter_plot"))
            )),
-  tabPanel(title = "Audio Feature",
-               tabPanel(
-                   textInput("spotify_token", "Enter your Spotify Token:"),
-                   selectInput("artist1", "Choose Artist for Tracks:", choices = NULL, multiple = FALSE),
-                   actionButton("generate_plot", "Generate Plot")
-               ),
-               tabPanel(
-                   h3("Audio Feature Scatter Plot"),
-                   plotlyOutput("scatter_plot")
-               )),
   tabPanel(
      "Playlist Generate",
       icon = icon("list"),
@@ -320,66 +160,106 @@ main_ui <- navbarPage(
 
 ui <- fluidPage(
     tags$style(HTML("
-   /* General body styling */
-body {
-  background-color: #100000; /* Dark background */
-  color: #FFFFFF; /* White text */
-  font-family: Arial, sans-serif; /* Use a clean, modern font */
+ /* Global Styles */
+    body {
+      background-color: #100000; /* Dark background */
+      color: #FFFFFF; /* White text */
+      font-family: Arial, sans-serif; /* Consistent font */
+    }
+
+    /* Navbar Styles */
+    .navbar {
+      background-color: #1f1f1f !important; /* Black background */
+      border: none; /* Remove border */
+    }
+    .navbar-nav > li > a {
+      color: white !important; /* White text */
+      font-weight: bold; /* Bold tabs */
+      padding: 15px 30px; /* Spacing for tabs */
+      text-align: center; /* Center-align */
+    }
+    .navbar-nav > li > a:hover {
+      background-color: #444 !important; /* Dark gray hover */
+    }
+    .navbar-nav > li.active > a {
+      background-color: #1DB954 !important; /* Spotify green */
+      color: white !important; /* White text for active */
+    }
+    .navbar-header .navbar-brand {
+      color: white !important; /* White logo text */
+      font-weight: bold;
+    }
+
+    /* Tab Styles */
+    .nav-tabs > li > a {
+      color: #FFFFFF; /* White text */
+      background-color: transparent; /* Transparent tabs */
+      border: 1px solid #444; /* Subtle border */
+      border-radius: 10px 10px 0 0; /* Rounded corners */
+      padding: 8px 15px; /* Padding inside tabs */
+      margin-right: 5px; /* Space between tabs */
+    }
+    .nav-tabs > li.active > a {
+      background-color: #1DB954 !important; /* Active Spotify green */
+      border-color: #1DB954; /* Match border */
+    }
+
+    /* Checkbox Styles */
+    input[type='checkbox'] {
+      accent-color: #1DB954; /* Spotify green checkmark */
+      background-color: black; /* Dark box */
+      border: 1px solid #444; /* Border */
+    }
+    input[type='checkbox']:hover {
+      background-color: #1DB954; /* Green hover */
+    }
+    input[type='checkbox']:checked {
+      background-color: #1DB954; /* Checked color */
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      border-radius: 10px; /* Rounded corners */
+      padding: 10px; /* Inner padding */
+      background-color: #1f1f1f; /* Dark sidebar background */
+      color: #FFFFFF; /* White text */
+    }
+
+    /* Slider Styles */
+    
+    .irs-bar, .irs-bar-edge, .irs-single, .irs-slider {
+      background: #1DB954 !important; /* Spotify green */
+      border-color: #1DB954 !important;
+    }
+    .irs-grid-pol {
+      background: #FFFFFF !important; /* White grid lines */
+    }
+    .irs-grid-text {
+      color: #FFFFFF !important; /* White grid text */
+    } 
+                    /* Change the background and text color for active tabs inside a tabPanel */
+.nav-tabs > li > a.active,
+.nav-tabs > li > a.active:focus,
+.nav-tabs > li > a.active:hover {
+  background-color: #1DB954 !important; /* Spotify green for active tab */
+  color: #000000 !important; /* Black text for active tab */
+  border-color: #1DB954; /* Match border with background */
 }
 
-/* Tab navigation styling */
-.nav-tabs > li > a, 
-.nav-tabs > li > a:focus, 
+/* Optional: Adjust inactive tabs for better contrast */
+.nav-tabs > li > a {
+  background-color: transparent; /* Transparent background for unselected tabs */
+  color: #FFFFFF !important; /* White text for unselected tabs */
+  border: 1px solid #444; /* Subtle border */
+  border-radius: 10px 10px 0 0; /* Rounded corners */
+}
+
+/* Adjust hover effect for inactive tabs */
 .nav-tabs > li > a:hover {
-  color: #FFFFFF; /* White text for tab titles */
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
-  background-color: #222; /* Slightly lighter background for tabs */
-  padding: 10px 15px; /* Consistent padding for tabs */
-  margin-right: 5px; /* Spacing between tabs */
-  border: none; /* Remove any border on hover */
+  background-color: #444 !important; /* Darker gray for hover */
+  color: #FFFFFF !important; /* Keep text white */
 }
-
-/* Active tab styling */
-.nav-tabs > li.active > a, 
-.nav-tabs > li.active > a:focus, 
-.nav-tabs > li.active > a:hover {
-  color: #FFFFFF; /* White text for active tab */
-  background-color: #1DB954; /* Spotify green for active tab */
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
-  font-weight: bold; /* Emphasize active tab */
-}
-
-/* Checkbox styling */
-input[type='checkbox'] {
-  accent-color: #1DB954; /* Spotify green for check color */
-  background-color: #222; /* Dark box color */
-  border-radius: 5px; /* Rounded corners for checkboxes */
-}
-
-input[type='checkbox']:checked {
-  background-color: #1DB954; /* Spotify green when checked */
-}
-
-/* Sidebar styling */
-.sidebar {
-  border-radius: 10px; /* Rounded corners */
-  padding: 15px; /* Add padding for better spacing */
-  background-color: #222; /* Match with tabs */
-  color: #FFFFFF; /* Ensure white text for sidebar */
-}
-
-/* Inner-tab styling */
-.inner-tab {
-  padding: 20px; /* Consistent padding for content */
-  background-color: #100000; /* Match with main background */
-  color: #FFFFFF; /* Ensure readability */
-  border: 0px solid #444; /* Subtle border for content separation */
-  border-radius: 10px; /* Rounded corners */
-}
-
-                ")
+")
     ),
     main_ui
 )
