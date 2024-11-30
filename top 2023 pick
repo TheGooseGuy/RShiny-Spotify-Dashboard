@@ -37,8 +37,19 @@ top10_total_artists_playlists = data_reference %>% group_by(artist_name) %>%
   summarise(total_playlists = sum(in_spotify_playlists,na.rm = TRUE),track_num = n()) %>% 
   arrange(desc(total_playlists)) %>% slice_head(n = 10)
 
+# Check for valid values for min and max
+playlist_min = ifelse(is.na(min(spotify_data$in_spotify_playlists, na.rm = TRUE)),
+                       0, min(spotify_data$in_spotify_playlists, na.rm = TRUE))
+playlist_max = ifelse(is.na(max(spotify_data$in_spotify_playlists, na.rm = TRUE)),
+                       1, max(spotify_data$in_spotify_playlists, na.rm = TRUE))
 
-tabs_ui <- tabsetPanel(
+stream_min = ifelse(is.na(min(spotify_data$streams, na.rm = TRUE)),
+                     0, min(spotify_data$streams, na.rm = TRUE))
+stream_max = ifelse(is.na(max(spotify_data$streams, na.rm = TRUE)),
+                     1, max(spotify_data$streams, na.rm = TRUE))
+
+
+tabs_ui = tabsetPanel(
   tags$style(HTML("
     body {
       background-color: #100000; /* Dark background */
@@ -165,7 +176,52 @@ main_ui <- navbarPage(
                       fluidRow(
                         column(width = 6, plotOutput("topplaylistplot", height = "400px")),
                         column(width = 6, plotOutput("totalplaylistplot", height = "400px"))
-                      )))),
+                      )),
+             tabPanel("Spotify Tracks Dynamic Analysis",
+                      sidebarLayout(
+                        sidebarPanel(
+                          # Dropdown for selecting track or artist
+                          selectInput("selection", 
+                                      "Choose what to analyze:", 
+                                      choices = c("Track Name", "Artist Name")),
+                          
+                          # Dynamic UI for filtering based on the choice
+                          uiOutput("dynamic_filter"),
+                          
+                          # Slider input for filtering by playlists
+                          sliderInput("playlist_filter", 
+                                      "Number of Spotify Playlists:", 
+                                      min = playlist_min, 
+                                      max = playlist_max, 
+                                      value = c(playlist_min, playlist_max)),
+                          
+                          # Slider input for filtering by streams
+                          sliderInput("stream_filter", 
+                                      "Number of Streams:", 
+                                      min = stream_min, 
+                                      max = stream_max, 
+                                      value = c(stream_min, stream_max))
+                        ),
+                        
+                        mainPanel(
+                          # Dynamic plot
+                          plotOutput("spotify_plot", height = "400px"),
+                          
+                          # Full-width row for the track table in two columns
+                          conditionalPanel(
+                            condition = "input.selection == 'Artist Name'",  # Show tables only for Artist Name
+                            fluidRow(
+                              column(6, 
+                                     h4("Artist Detail", style = "text-align: center;"),
+                                     tableOutput("track_table_left")),
+                              column(6, 
+                                     h4("Artist Detail", style = "text-align: center;"),
+                                     tableOutput("track_table_right"))
+                            )
+                          )
+                        )
+                      )
+                      ))),
   tabPanel("Listening Trends", 
            icon = icon("arrow-trend-up"),
            plotOutput("listeningTrendsPlot",height = "400px", width = "50%")),
@@ -521,6 +577,98 @@ server <- function(input, output, session) {
         legend.position = "None",
         axis.text.x = element_text(angle = 45, hjust = 1)
       )
+  })
+  
+  # Create dynamic filter UI based on the selection
+  output$dynamic_filter = renderUI({
+    if (input$selection == "Track Name") {
+      selectInput("track_artist_filter", 
+                  "Select Track Name:", 
+                  choices = unique(spotify_data$track_name))
+    } else {
+      artist_ordered = spotify_data %>%
+        group_by(artist_name) %>%
+        summarize(total_streams = sum(streams, na.rm = TRUE)) %>%
+        arrange(desc(total_streams))
+      
+      selectInput("track_artist_filter", 
+                  "Select Artist Name:", 
+                  choices = unique(artist_ordered))
+    }
+  })
+  
+  # Filter the data re-actively
+  filtered_data = reactive({
+    if (input$selection == "Track Name") {
+      spotify_data %>%
+        filter(track_name == input$track_artist_filter &
+                 in_spotify_playlists >= input$playlist_filter[1] &
+                 in_spotify_playlists <= input$playlist_filter[2] &
+                 streams >= input$stream_filter[1] &
+                 streams <= input$stream_filter[2])
+    } else {
+      spotify_data %>%
+        filter(artist_name == input$track_artist_filter &
+                 in_spotify_playlists >= input$playlist_filter[1] &
+                 in_spotify_playlists <= input$playlist_filter[2] &
+                 streams >= input$stream_filter[1] &
+                 streams <= input$stream_filter[2])
+    }
+  })
+  
+  # Render the plot
+  output$spotify_plot = renderPlot({
+    data = filtered_data()
+    ggplot(data, aes(x = in_spotify_playlists, y = streams, color = streams)) +
+      geom_point(size = 3, alpha = 0.7) +
+      scale_color_gradient(low = "lightgreen", high = "#1DB954") +  # Use color aesthetic
+      labs(
+        title = "Spotify Playlists vs Streams",
+        x = "Number of Spotify Playlists",
+        y = "Number of Streams"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5,size = 14,color = "white",face = "bold"),
+        axis.text = element_text(size = 10,color = "white",face = "bold"),
+        axis.title = element_text(size = 10,color = "white",face = "bold"),
+        plot.margin = unit(c(1, 1, 1, 0), "cm"),
+        plot.background = element_rect(fill = "#100000", color = NA),
+        panel.background = element_rect(fill = "#100000", color = NA),
+        panel.grid.major = element_line(color = "gray40"),
+        panel.grid.minor = element_line(color = "gray30"),
+        legend.background = element_rect(fill = "#100000"),
+        legend.position = "None",
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      ) +
+      scale_y_continuous(labels = scales::comma_format(scale = 0.001, suffix = "k"))  # Format y-axis
+  })
+  
+  # Split the track list into two parts
+  split_tracks <- reactive({
+    if (input$selection == "Artist Name") {
+      tracks = spotify_data %>%
+        filter(artist_name == input$track_artist_filter) %>%
+        select(track_name, streams, in_spotify_playlists) %>%
+        arrange(desc(streams))
+      mid_point = ceiling(nrow(tracks) / 2)
+      list(
+        left = tracks[1:mid_point, ],
+        right = tracks[(mid_point + 1):nrow(tracks), ]
+      )
+    } else {
+      list(left = NULL, right = NULL)  # Return empty lists if "Track Name" is selected
+    }
+  })
+  
+  # Render the left column table
+  output$track_table_left = renderTable({
+    split_tracks()$left
+  })
+  
+  # Render the right column table
+  output$track_table_right = renderTable({
+    split_tracks()$right
   })
 }
 # Run the application 
