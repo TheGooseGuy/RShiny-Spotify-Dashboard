@@ -38,15 +38,15 @@ top10_total_artists_playlists = data_reference %>% group_by(artist_name) %>%
   arrange(desc(total_playlists)) %>% slice_head(n = 10)
 
 # Check for valid values for min and max
-playlist_min = ifelse(is.na(min(spotify_data$in_spotify_playlists, na.rm = TRUE)),
-                       0, min(spotify_data$in_spotify_playlists, na.rm = TRUE))
-playlist_max = ifelse(is.na(max(spotify_data$in_spotify_playlists, na.rm = TRUE)),
-                       1, max(spotify_data$in_spotify_playlists, na.rm = TRUE))
+playlist_min = ifelse(is.na(min(data_reference$in_spotify_playlists, na.rm = TRUE)),
+                       0, min(data_reference$in_spotify_playlists, na.rm = TRUE))
+playlist_max = ifelse(is.na(max(data_reference$in_spotify_playlists, na.rm = TRUE)),
+                       1, max(data_reference$in_spotify_playlists, na.rm = TRUE))
 
-stream_min = ifelse(is.na(min(spotify_data$streams, na.rm = TRUE)),
-                     0, min(spotify_data$streams, na.rm = TRUE))
-stream_max = ifelse(is.na(max(spotify_data$streams, na.rm = TRUE)),
-                     1, max(spotify_data$streams, na.rm = TRUE))
+stream_min = ifelse(is.na(min(data_reference$streams, na.rm = TRUE)),
+                     0, min(data_reference$streams, na.rm = TRUE))
+stream_max = ifelse(is.na(max(data_reference$streams, na.rm = TRUE)),
+                     1, max(data_reference$streams, na.rm = TRUE))
 
 
 tabs_ui = tabsetPanel(
@@ -584,9 +584,9 @@ server <- function(input, output, session) {
     if (input$selection == "Track Name") {
       selectInput("track_artist_filter", 
                   "Select Track Name:", 
-                  choices = unique(spotify_data$track_name))
+                  choices = unique(data_reference$track_name))
     } else {
-      artist_ordered = spotify_data %>%
+      artist_ordered = data_reference %>%
         group_by(artist_name) %>%
         summarize(total_streams = sum(streams, na.rm = TRUE)) %>%
         arrange(desc(total_streams))
@@ -600,14 +600,14 @@ server <- function(input, output, session) {
   # Filter the data re-actively
   filtered_data = reactive({
     if (input$selection == "Track Name") {
-      spotify_data %>%
+      data_reference %>%
         filter(track_name == input$track_artist_filter &
                  in_spotify_playlists >= input$playlist_filter[1] &
                  in_spotify_playlists <= input$playlist_filter[2] &
                  streams >= input$stream_filter[1] &
                  streams <= input$stream_filter[2])
     } else {
-      spotify_data %>%
+      data_reference %>%
         filter(artist_name == input$track_artist_filter &
                  in_spotify_playlists >= input$playlist_filter[1] &
                  in_spotify_playlists <= input$playlist_filter[2] &
@@ -629,9 +629,9 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       theme(
-        plot.title = element_text(hjust = 0.5,size = 14,color = "white",face = "bold"),
-        axis.text = element_text(size = 10,color = "white",face = "bold"),
-        axis.title = element_text(size = 10,color = "white",face = "bold"),
+        plot.title = element_text(hjust = 0.5,size = 15,color = "white",face = "bold"),
+        axis.text = element_text(size = 13,color = "white",face = "bold"),
+        axis.title = element_text(size = 13,color = "white",face = "bold"),
         plot.margin = unit(c(1, 1, 1, 0), "cm"),
         plot.background = element_rect(fill = "#100000", color = NA),
         panel.background = element_rect(fill = "#100000", color = NA),
@@ -647,7 +647,7 @@ server <- function(input, output, session) {
   # Split the track list into two parts
   split_tracks <- reactive({
     if (input$selection == "Artist Name") {
-      tracks = spotify_data %>%
+      tracks = data_reference %>%
         filter(artist_name == input$track_artist_filter) %>%
         select(track_name, streams, in_spotify_playlists) %>%
         arrange(desc(streams))
@@ -674,3 +674,4 @@ server <- function(input, output, session) {
 # Run the application 
 
 shinyApp(ui = ui, server = server)
+
