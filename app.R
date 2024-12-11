@@ -7,7 +7,7 @@
 #    https://shiny.posit.co/
 
 library(shiny)
-library(Rspotify)
+#library(Rspotify)
 library(spotifyr)
 library(ggplot2)
 library(dplyr)
@@ -15,6 +15,128 @@ library(lubridate)
 library(shinythemes)
 library(bslib)
 library(plotly)
+library(leaflet)
+library(readr)
+library(dplyr)
+
+Sys.setenv(SPOTIFY_CLIENT_ID = '')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = '')
+Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/") 
+access_token <- get_spotify_access_token()
+
+
+
+#Listening Trends
+
+process_spotify_listening_trend <- function(limit = 50) {
+  # Validate input
+  if (limit < 20 || limit > 50) {
+    stop("Limit must be between 20 and 50")
+  }
+  
+  # Fetch recently played tracks
+  recent_tracks <- get_my_recently_played(limit = limit)
+  
+  # Extract relevant information: played time and duration
+  listening_data <- recent_tracks %>%
+    transmute(
+      played_at = ymd_hms(played_at),
+      hour = hour(played_at),
+      minute = minute(played_at),
+      duration_minutes = track.duration_ms / 60000  # Convert ms to minutes
+    )
+  
+  # Aggregate the total lengths of songs per hour
+  hourly_summary <- listening_data %>%
+    group_by(hour) %>%
+    summarise(
+      total_minutes = sum(duration_minutes),
+      song_count = n()
+    ) %>%
+    ungroup()
+  
+  # Create the visualization
+  trend_plot <- ggplot(hourly_summary, aes(x = hour, y = total_minutes)) +
+    geom_bar(
+      stat = "identity", 
+      fill = "#1DB954",  # Spotify green
+      color = "white",   # White border
+      width = 0.7        # Slightly narrower bars
+    ) +
+    scale_x_continuous(
+      breaks = seq(min(hourly_summary$hour), max(hourly_summary$hour), 1),
+      labels = function(x) paste0(x, ":00")
+    ) +
+    scale_y_continuous(
+      limits = c(0, max(hourly_summary$total_minutes) * 1.1),  # Dynamic y-axis limit
+      breaks = seq(0, max(hourly_summary$total_minutes), 10)
+    ) +
+    labs(
+      title = paste("Listening Trend of Last", limit, "Songs"),
+      x = "Hour of the Day",
+      y = "Total Listening Time (Minutes)"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      panel.background = element_rect(fill = "#121212", color = NA),
+      plot.background = element_rect(fill = "#121212", color = NA),
+      panel.grid.major = element_line(color = "white", size = 0.05),
+      panel.grid.minor = element_line(color = "white", size = 0.05),
+      text = element_text(color = "white"),
+      axis.text = element_text(color = "white"),
+      axis.title = element_text(color = "white"),
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
+    )
+  
+  # Return a list with the plot and summary data
+  return(list(
+    plot = trend_plot,
+    hourly_summary = hourly_summary,
+    total_listening_time = sum(hourly_summary$total_minutes)
+  ))
+}
+
+#map
+plot_top_artists_map <- function(limit = 10) {
+  # Fetch top artists from Spotify
+  top_artists <- get_my_top_artists_or_tracks(
+    type="artists",
+    limit = 20) %>%
+    transmute(Artist = name) # Extract artist names
+  
+  # Load your CSV with geo data
+  geo_data <- read_csv("artist-countries-geo.csv")
+  
+  # Merge Spotify artist data with geo data
+  artist_geo_data <- geo_data %>%
+    inner_join(top_artists, by = "Artist") # Match artists from Spotify with geo data
+  
+  # Group by country and calculate number of artists per country
+  country_artist_data <- artist_geo_data %>%
+    group_by(Country, Latitude, Longitude) %>%
+    summarise(
+      Artists = paste(Artist, collapse = ", "),
+      ArtistCount = n(), # Count the number of artists per country
+      .groups = "drop"
+    )
+  
+  # Create a leaflet map with artist locations
+  map <- leaflet(country_artist_data) %>%
+    addProviderTiles("CartoDB.DarkMatter") %>%  # Changed to dark theme
+    addCircleMarkers(
+      lng = ~Longitude, lat = ~Latitude,
+      popup = ~paste("Country:", Country, "<br>Artists:", Artists, "<br>Number of Artists:", ArtistCount),
+      color = "#1DB954",  # Spotify green for visibility
+      fillColor = "#1DB954",  # Same color for fill
+      fill = TRUE, 
+      fillOpacity = 0.7,
+      radius = ~ArtistCount * 3 # Scale the circle size by the number of artists
+    )
+  
+  # Return the map
+  return(map)
+}
+
 
 # Function to get track features based on user preferences
 get_audio_features <- function(tracks) {
@@ -56,12 +178,27 @@ dashboard_ui <- tabsetPanel(
                    )
                )
            ),
-  
+  tabPanel("Top Artists",
+           icon = icon("microphone"),
+           sliderInput("top_artist_limit", 
+                       "Number of Top Artists", 
+                       min = 10, 
+                       max = 20, 
+                       value = 10, 
+                       step = 1),
+           leafletOutput("top_artists_map"),
+           p("This shows your top artists."), class="inner-tab"),
   tabPanel("Genres", 
            icon = icon("bars-staggered"),
            plotOutput("genrePlot"), class="inner-tab"),
   tabPanel("Listening Trends",
            icon = icon("arrow-trend-up"),
+           sliderInput("spotify_limit", 
+                       "Number of Recent Tracks", 
+                       min = 20, 
+                       max = 50, 
+                       value = 50, 
+                       step = 10),
            plotOutput("listeningTrendsPlot"),
            p("This chart shows how your listening habits have changed over time."), class="inner-tab")
 )
@@ -78,7 +215,7 @@ main_ui <- navbarPage(
                     textInput("CID", "Enter your Client ID:", ""),
                     textInput("CST", "Enter your Client Secret:", ""),
                     textInput("RURL", "Enter your Redirect URL:", "http://localhost:1410/"),
-                    textInput("token", "Enter your Spotify Token:", ""),
+                    #textInput("token", "Enter your Spotify Token:", ""),
                     actionButton("analyze", "Lock In"),
                   hr(),
                   h3("Analysis Options"),
@@ -271,42 +408,49 @@ server <- function(input, output, session) {
     
     # Fetch and process Spotify data on 'Analyze' button click
     observeEvent(input$analyze, {
-        req(input$token)  # Ensure token is provided
-
-        access_token <- input$token
-        auth_header <- paste("Bearer", access_token)
+        #req(input$token)  # Ensure token is provided
+        Sys.setenv(SPOTIFY_CLIENT_ID = input$CID)
+        Sys.setenv(SPOTIFY_CLIENT_SECRET = input$CST)
+        Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/") 
+        access_token <- get_spotify_access_token()
+        #auth_header <- paste("Bearer", access_token)
         
         tryCatch({
-            # Fetch data from Spotify API
-            tracks <- get_my_top_artists_or_tracks(
-                type = "tracks",
-                time_range = "long_term",
-                limit = 50,
-                authorization = auth_header  # Pass the formatted token here
-            )
-            artists <- get_my_top_artists_or_tracks(type = "artists", time_range = "long_term", limit = 50, authorization = access_token)
-            
-            # Process genres
-            genres <- unlist(artists$genres)
-            genre_count <- as.data.frame(table(genres))
-            genre_count <- genre_count[order(-genre_count$Freq), ]
-            
-            # Calculate total listening time
-            total_time <- sum(tracks$duration_ms, na.rm = TRUE) / (1000 * 60)  # Convert ms to minutes
-            
-            # Store results in a reactive value
-            user_data(list(
-                tracks = tracks,
-                artists = artists,
-                genres = genre_count,
-                total_time = total_time
-            ))
-            
-            # Notify success
-            showNotification("Data successfully fetched!", type = "message")
+          # Fetch data from Spotify API
+          tracks <- get_my_top_artists_or_tracks(
+            type = "tracks",
+            time_range = "long_term",
+            limit = 50
+          )
+          
+          artists <- get_my_top_artists_or_tracks(
+            type = "artists", 
+            time_range = "long_term", 
+            limit = 50
+          )
+          
+          # Process genres
+          # Use sapply to extract genres from each artist
+          genres <- unlist(sapply(artists$genres, function(x) if(length(x) > 0) x else NA))
+          genre_count <- as.data.frame(table(genres))
+          genre_count <- genre_count[order(-genre_count$Freq), ]
+          
+          # Calculate total listening time
+          total_time <- sum(tracks$duration_ms, na.rm = TRUE) / (1000 * 60)  # Convert ms to minutes
+          
+          # Store results in a reactive value
+          user_data(list(
+            tracks = tracks,
+            artists = artists,
+            genres = genre_count,
+            total_time = total_time
+          ))
+          
+          # Notify success
+          showNotification("Data successfully fetched!", type = "message")
         }, error = function(e) {
-            # Handle errors
-            showNotification(paste("Error:", e$message), type = "error")
+          # Handle errors
+          showNotification(paste("Error:", e$message), type = "error")
         })
     })
     
@@ -325,17 +469,33 @@ server <- function(input, output, session) {
     
     # Listening Trends Plot
     output$listeningTrendsPlot <- renderPlot({
-        req(trends_data())
+      validate(need(input$spotify_limit, "Please select a limit"))
+      
+      tryCatch({
+        trend_results <- process_spotify_listening_trend(limit = input$spotify_limit)
         
-        ggplot(trends_data(), aes(x = month)) +
-            geom_line(aes(y = total_songs), color = "blue", size = 1) +
-            geom_bar(aes(y = total_duration), stat = "identity", fill = "lightblue", alpha = 0.5) +
-            labs(
-                title = "User's Listening Trends Over Time",
-                x = "Month",
-                y = "Total Songs / Listening Time (min)"
-            ) +
-            theme_minimal()
+        # Display the plot
+        trend_results$plot
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error")
+        NULL
+      })
+    })
+    
+    #Top Artist
+    output$top_artists_map <- renderLeaflet({
+      # Ensure you've set up Spotify authentication first
+      validate(need(input$top_artist_limit, "Please select a limit"))
+      
+      tryCatch({
+        top_artist_map <- plot_top_artists_map(limit = input$top_artist_limit)
+        
+        # Display the Leaflet map
+        top_artist_map
+      }, error = function(e) {
+        showNotification(paste("Error:", e$message), type = "error")
+        NULL
+      })
     })
     
     # Output for total listening time summary
