@@ -173,7 +173,23 @@ get_top_artists_details <- function(limit = 50) {
   
   return(artist_details)
 }
-
+format_artists <- function(artists) {
+  # If artists is a data frame or list, extract names
+  if (is.data.frame(artists) || is.list(artists)) {
+    artist_names <- sapply(artists, function(artist) {
+      if (is.list(artist)) artist$name else as.character(artist)
+    })
+  } else {
+    # If it's already a character vector
+    artist_names <- as.character(artists)
+  }
+  
+  # Combine unique artists
+  unique_artists <- unique(artist_names)
+  
+  # Join artists
+  paste(unique_artists, collapse = ", ")
+}
 
 #Top tracks
 get_top_tracks_details <- function(limit = 50) {
@@ -233,9 +249,35 @@ get_audio_features <- function(tracks) {
 
 
 dashboard_ui <- tabsetPanel(
-  tabPanel("Summary",
+  tabPanel("Profile",
            icon = icon("fa-regular fa-file"),
-           textOutput("summary"), class="inner-tab"),
+           textOutput("summary"),
+           fluidRow(
+             column(6, 
+                    h3("User Profile"),
+                    icon("user"), # Icon representation of the user
+                    textOutput("user_name"),
+                    textOutput("user_followers"),
+                    fluidRow(actionButton("refresh", "Refresh Info", style="margin-left: 5px"),
+                             actionButton("pause", "Pause Playback"))
+             ),
+             column(6,
+                    h3("Currently Playing"),
+                    uiOutput("current_track_album"),
+                    uiOutput("current_track_info")
+                    
+             )
+           ),
+           br(),
+           
+           br(),
+           fluidRow(
+             
+                    
+             
+           ),
+           
+           class="inner-tab"),
   
   tabPanel("Top Tracks",
            icon = icon("music"),
@@ -293,7 +335,6 @@ dashboard_ui <- tabsetPanel(
 ,
   tabPanel("Genres", 
            icon = icon("bars-staggered"),
-           #plotOutput("genrePlot"), class="inner-tab"),
            fluidRow(
              column(12, 
                     plotOutput("genrePlot", height = "800px", width = "100%"))
@@ -705,7 +746,109 @@ server <- function(input, output, session) {
       )
     })
     
-
+    #User Profile
+    
+    authorization <- reactive({
+      get_spotify_authorization_code()
+    })
+    
+    # Fetch user profile info
+    user_info <- reactive({
+      get_my_profile(authorization = authorization())
+    })
+    
+    output$user_name <- renderText({
+      paste("Username:", user_info()$display_name)
+    })
+    
+    output$user_followers <- renderText({
+      paste("Followers:", user_info()$followers.total)
+    })
+    
+    # Fetch currently playing track
+    currently_playing <- reactive({
+      tryCatch({
+        get_my_currently_playing(authorization = authorization())
+      }, error = function(e) {
+        message("Error fetching currently playing track: ", e$message)
+        NULL
+      })
+    })
+    
+    output$current_track_info <- renderUI({
+      req(currently_playing())
+      
+      track <- currently_playing()$item
+      print(track)
+      print(track$artists$name)
+      song_name = track$name
+      # Extract artist names
+      #artists <- sapply(track$artists, function(artist) artist$name)
+      artist_names <- track$artists$name
+      formatted_artist_names <- format_artists(artist_names)
+      print(formatted_artist_names)
+      div(
+        h3("Title:", song_name),
+        h4(paste("By:", formatted_artist_names))
+      )
+    })
+    
+    output$current_track_album <- renderUI({
+      req(currently_playing())
+      
+      track <- currently_playing()$item
+      album <- track$album
+      if (!is.null(album$images) && length(album$images) >= 2) {
+        tags$img(src = album$images[2, "url"], height = "300px")
+      } else {
+        div("No album image available")
+      }
+    })
+    
+    # Pause playback action
+    observeEvent(input$pause, {
+      pause_my_playback(authorization = authorization())
+    })
+    
+    # Refresh info
+    observeEvent(input$refresh, {
+      output$user_name <- renderText({
+        paste("Username:", user_info()$display_name)
+      })
+      
+      output$user_followers <- renderText({
+        paste("Followers:", user_info()$followers.total)
+      })
+      
+      output$current_track_info <- renderUI({
+        req(currently_playing())
+        
+        track <- currently_playing()$item
+        if (is.null(track)) {
+          div("Nothing is currently playing.")
+        } else {
+          div(
+            h4(paste("Track:", track$name)),
+            h5(paste("Artist:", paste(track$artists[[1]]$name, collapse = ", "))),
+            h5(paste("Album:", track$album$name))
+          )
+        }
+      })
+      
+      output$current_track_album <- renderUI({
+        req(currently_playing())
+        
+        track <- currently_playing()$item
+        album <- track$album
+        if (!is.null(album$images) && nrow(album$images) >= 2) {
+          tags$img(src = album$images[2, "url"], height = "300px")
+        } else {
+          div("No album image available")
+        }
+      })
+      
+      
+    })
     
     # Placeholder for additional trends
     output$timePlot <- renderPlot({
