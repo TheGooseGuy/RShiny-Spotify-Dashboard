@@ -18,9 +18,10 @@ library(plotly)
 library(leaflet)
 library(readr)
 library(dplyr)
+library(reactable)
 
-Sys.setenv(SPOTIFY_CLIENT_ID = '')
-Sys.setenv(SPOTIFY_CLIENT_SECRET = '')
+Sys.setenv(SPOTIFY_CLIENT_ID = '4cc947da074c483a83711e8d9ecb2db5')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = '62146858c5824b79b93ab09b39717bb2')
 Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/") 
 access_token <- get_spotify_access_token()
 
@@ -137,6 +138,92 @@ plot_top_artists_map <- function(limit = 10) {
   return(map)
 }
 
+#Function for top artist details
+get_top_artists_details <- function(limit = 50) {
+  # Fetch top artists
+  top_artists <- get_my_top_artists_or_tracks(type = "artists", limit = limit)
+  
+  # Safely extract the first (largest) image URL from the nested column
+  extract_image_url <- function(images) {
+    # If images is NULL or empty, return NA
+    if (is.null(images) || length(images) == 0) {
+      return(NA_character_)
+    }
+    
+    # The images are a data frame, so we can directly select the 640px URL
+    largest_image <- images[images$height == 640, ]
+    
+    # Return the URL if found, otherwise NA
+    if (nrow(largest_image) > 0) {
+      return(largest_image$url)
+    }
+    
+    return(NA_character_)
+  }
+  
+  # Safely extract all relevant details into a consistent data frame
+  artist_details <- tibble(
+    image_url = sapply(top_artists$images, extract_image_url),
+    name = top_artists$name,
+    popularity = top_artists$popularity,
+    followers = top_artists$followers.total
+    
+  ) %>%
+    arrange(desc(popularity))  # Sort by popularity
+  
+  return(artist_details)
+}
+
+
+#Top tracks
+get_top_tracks_details <- function(limit = 50) {
+  # Fetch top tracks 
+  top_tracks <- get_my_top_artists_or_tracks(type = "tracks", limit = limit)
+  
+  # Safely extract the album image URL
+  extract_image_url <- function(images) {
+    if (is.null(images) || length(images) == 0) {
+      return(NA_character_)
+    }
+    largest_image <- images[images$height == 640, ]
+    if (nrow(largest_image) > 0) {
+      return(largest_image$url)
+    }
+    return(NA_character_)
+  }
+  
+  # Extract artist names
+  extract_artist_names <- function(artists_list) {
+    if (is.null(artists_list) || length(artists_list) == 0) {
+      return(NA_character_)
+    }
+    
+    artist_names <- sapply(artists_list, function(artist_df) {
+      if (is.data.frame(artist_df) && "name" %in% names(artist_df)) {
+        return(artist_df$name)
+      }
+      return(NA_character_)
+    })
+    
+    return(paste(artist_names, collapse = ", "))
+  }
+  
+  # Create a tibble with relevant track details
+  track_details <- tibble(
+    track_name = top_tracks$name,
+    artists = sapply(top_tracks$artists, extract_artist_names),
+    album_name = top_tracks$album.name,
+    popularity = top_tracks$popularity,
+    release_date = top_tracks$album.release_date,
+    album_image_url = sapply(top_tracks$album.images, extract_image_url)
+  ) %>% arrange(desc(popularity))
+  
+  return(track_details)
+}
+
+
+
+
 
 # Function to get track features based on user preferences
 get_audio_features <- function(tracks) {
@@ -173,9 +260,18 @@ dashboard_ui <- tabsetPanel(
                    ),
                    actionButton("apply_filters", "Apply Filters")
                ),
-               card(
-                   DT::dataTableOutput("filtered_songs_table")
-                   )
+               #card(
+                   #DT::dataTableOutput("filtered_songs_table")
+                   #),
+               sliderInput("top_track_limit", 
+                           "Number of Top Tracks", 
+                           min = 10, 
+                           max = 50, 
+                           value = 20, 
+                           step = 1),
+               reactableOutput("top_tracks_table"),
+               p("This shows your top tracks along with their album cover, artists, album name, and popularity."),
+               class = "inner-tab"
                )
            ),
   tabPanel("Top Artists",
@@ -186,11 +282,23 @@ dashboard_ui <- tabsetPanel(
                        max = 20, 
                        value = 10, 
                        step = 1),
-           leafletOutput("top_artists_map"),
-           p("This shows your top artists."), class="inner-tab"),
+           # Use fluidRow to create a horizontal layout
+           fluidRow(
+             # Use column to define how much space each output takes up
+             column(6, reactableOutput("top_artist_table")),  # 50% width for the table
+             column(6, leafletOutput("top_artists_map"))     # 50% width for the map
+           ),
+           p("This shows your top artists."), class="inner-tab")
+  
+,
   tabPanel("Genres", 
            icon = icon("bars-staggered"),
-           plotOutput("genrePlot"), class="inner-tab"),
+           #plotOutput("genrePlot"), class="inner-tab"),
+           fluidRow(
+             column(12, 
+                    plotOutput("genrePlot", height = "800px", width = "100%"))
+           )),
+           
   tabPanel("Listening Trends",
            icon = icon("arrow-trend-up"),
            sliderInput("spotify_limit", 
@@ -220,7 +328,7 @@ main_ui <- navbarPage(
                   hr(),
                   h3("Analysis Options"),
                   checkboxInput("show_genres", "Show Genre Analysis", TRUE),
-                  checkboxInput("show_tracks", "Show Most Listelned Tracks", TRUE),
+                  checkboxInput("show_tracks", "Show Most Listened Tracks", TRUE),
                   checkboxInput("show_time", "Show Listening Time Trends", TRUE),
                   #selectInput("metric", "Choose a Metric:", 
                   #            choices = c("Speechiness", "Danceability", "Energy", "Valence")),
@@ -482,6 +590,39 @@ server <- function(input, output, session) {
       })
     })
     
+    #Top artist table
+    output$top_artist_table <- renderReactable({
+      artist_details <- get_top_artists_details(input$top_artist_limit)
+      
+      reactable(
+        artist_details, 
+        columns = list(
+          image_url = colDef(
+            name = "Image",
+            cell = function(value) {
+              if (!is.na(value)) {
+                tags$img(src = value, height = "50px", width = "50px")
+              } else {
+                "No Image"
+              }
+            }
+          ),
+          name = colDef(name = "Name", width = 200),
+          popularity = colDef(name = "Popularity"),
+          followers = colDef(name = "Followers")
+        ),
+        defaultColDef = colDef(
+          align = "center"
+        ),
+        bordered = TRUE,
+        striped = TRUE,
+        highlight = TRUE,
+        theme = reactable::reactableTheme(
+          backgroundColor = "#121212",
+        )
+      )
+    })
+    
     #Top Artist
     output$top_artists_map <- renderLeaflet({
       # Ensure you've set up Spotify authentication first
@@ -506,21 +647,65 @@ server <- function(input, output, session) {
     
     # Genre Analysis Plot
     output$genrePlot <- renderPlot({
-        req(input$show_genres, user_data())
-        ggplot(user_data()$genres, aes(x = reorder(genres, Freq), y = Freq)) +
-            geom_bar(stat = "identity", fill = "steelblue") +
-            coord_flip() +
-            labs(title = "Top Genres", x = "Genres", y = "Count")
+      req(input$show_genres, user_data())
+      ggplot(user_data()$genres, aes(x = reorder(genres, Freq), y = Freq)) +
+        geom_bar(stat = "identity", fill = "#1DB954", color = "black") +  # Spotify green with black borders
+        coord_flip() +
+        labs(
+          title = "Top Genres",
+          x = "Genres",
+          y = "Count"
+        ) +
+        theme_minimal(base_family = "Arial") +  # Clean, minimal theme
+        theme(
+          plot.background = element_rect(fill = "#191414", color = NA),  # Spotify dark background
+          panel.background = element_rect(fill = "#191414", color = NA),
+          text = element_text(color = "white", size = 14),  # Increased text size
+          axis.text = element_text(color = "white", size = 12),
+          axis.title = element_text(color = "white", size = 14),
+          plot.title = element_text(size = 16, face = "bold", color = "white", hjust = 0.5),
+          axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for better visibility
+        )
     })
     
+    
+    
     # Top Tracks Table
-    output$topTracks <- renderTable({
-        req(input$show_tracks, user_data())
-        user_data()$tracks %>%
-            select(name, artists = artists.name, popularity) %>%
-            arrange(-popularity) %>%
-            head(10)
+    output$top_tracks_table <- renderReactable({
+      track_details <- get_top_tracks_details(input$top_track_limit)
+      
+      reactable(
+        track_details,
+        columns = list(
+          track_name = colDef(name = "Track Name", width = 200),
+          artists = colDef(name = "Artists", width = 300),
+          album_name = colDef(name = "Album Name", width = 200),
+          popularity = colDef(name = "Popularity"),
+          release_date = colDef(name = "Release Date"),
+          album_image_url = colDef(
+            name = "Album Cover",
+            cell = function(value) {
+              if (!is.na(value)) {
+                tags$img(src = value, height = "50px", width = "50px")
+              } else {
+                "No Image"
+              }
+            }
+          )
+        ),
+        defaultColDef = colDef(
+          align = "center"
+        ),
+        bordered = TRUE,
+        striped = TRUE,
+        highlight = TRUE,
+        theme = reactable::reactableTheme(
+          backgroundColor = "#121212",
+        )
+      )
     })
+    
+
     
     # Placeholder for additional trends
     output$timePlot <- renderPlot({
