@@ -25,7 +25,40 @@ Sys.setenv(SPOTIFY_CLIENT_SECRET = '62146858c5824b79b93ab09b39717bb2')
 Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/") 
 access_token <- get_spotify_access_token()
 
+# Load the reference data set and preprocess it
+data_reference = read_csv("C:/Users/Administrator/Desktop/spotify-2023.csv")
+data_reference$streams = as.numeric(data_reference$streams)
+data_reference = data_reference %>% rename(artist_name = 'artist(s)_name')
 
+# Get the top 10 streams
+top10_streams_list = data_reference %>% arrange(desc(streams)) %>% 
+    slice_head(n = 10) %>% select(track_name,artist_name,streams)
+
+
+# Get the top 10 artists by total streams
+top10_total_artists_stream = data_reference %>% group_by(artist_name) %>% 
+    summarise(total_streams = sum(streams,na.rm = TRUE),track_num = n()) %>% 
+    arrange(desc(total_streams)) %>% slice_head(n = 10)
+
+# Get the top 10 Spotify playlists
+top10_spotify_playlists = data_reference %>% arrange(desc(in_spotify_playlists)) %>% 
+    slice_head(n = 10) %>% select(track_name,artist_name,in_spotify_playlists)
+
+# Gee the top 10 artists by total palylists
+top10_total_artists_playlists = data_reference %>% group_by(artist_name) %>% 
+    summarise(total_playlists = sum(in_spotify_playlists,na.rm = TRUE),track_num = n()) %>% 
+    arrange(desc(total_playlists)) %>% slice_head(n = 10)
+
+# Check for valid values for min and max
+playlist_min = ifelse(is.na(min(data_reference$in_spotify_playlists, na.rm = TRUE)),
+                      0, min(data_reference$in_spotify_playlists, na.rm = TRUE))
+playlist_max = ifelse(is.na(max(data_reference$in_spotify_playlists, na.rm = TRUE)),
+                      1, max(data_reference$in_spotify_playlists, na.rm = TRUE))
+
+stream_min = ifelse(is.na(min(data_reference$streams, na.rm = TRUE)),
+                    0, min(data_reference$streams, na.rm = TRUE))
+stream_max = ifelse(is.na(max(data_reference$streams, na.rm = TRUE)),
+                    1, max(data_reference$streams, na.rm = TRUE))
 
 format_artists <- function(artists) {
   # If artists is a data frame or list, extract names
@@ -364,22 +397,95 @@ main_ui <- navbarPage(
              )
            ),
       
-        tabPanel("Top Pick 2023",
+  tabPanel("Top Pick 2023",
            icon = icon("arrow-down-wide-short"),
            tabsetPanel(
                tabPanel("Introduction",
-                        HTML("")
+                        fluidRow(
+                            column(width = 8,
+                                   h3("About Dataset"),
+                                   uiOutput("description")),
+                            column(width = 4,
+                                   h3("Key features"),
+                                   uiOutput("features"))
+                        )   
+                        
                ),
                tabPanel("Top 10 Streams",
-                        h3("202x Top 10 Tracks by Streams"),
-                        htmlOutput("topstreamsummary"),
-                        plotOutput("topstreamplot")),
+                        fluidRow(
+                            column(width = 6,
+                                   h3("2023 Top 10 Tracks by Streams"),
+                                   uiOutput("topstreamsummary", style = "margin-bottom: 60px;")),
+                            column(width = 6,
+                                   h3("2023 Top 10 Artists by total Streams"),
+                                   uiOutput("topartiststreamsummary", style = "margin-bottom: 60px;"))),
+                        
+                        fluidRow(
+                            column(width = 6,
+                                   plotOutput("topstreamplot",height = "400px")),
+                            column(width = 6,
+                                   plotOutput("totalstreamplot",height = "400px")))),
                
                tabPanel("Top 10 playlists",
-                        h3("202x Top 10 Tracks by Spotify Playlists"),
-                        htmlOutput('topplaylistssummary'),
-                        plotOutput("topplaylistsplot")))
-  ),
+                        fluidRow(
+                            column(width = 6,
+                                   h3("2023 Top 10 Tracks by Playlist Count"),
+                                   uiOutput("topplaylistsummary", style = "margin-bottom: 60px;")
+                            ),
+                            column(width = 6,
+                                   h3("2023 Top 10 Artists by Total Playlists"),
+                                   uiOutput("topartistplaylistsummary", style = "margin-bottom: 60px;")
+                            )
+                        ),
+                        fluidRow(
+                            column(width = 6, plotOutput("topplaylistplot", height = "400px")),
+                            column(width = 6, plotOutput("totalplaylistplot", height = "400px"))
+                        )),
+               tabPanel("Spotify Tracks Dynamic Analysis",
+                        sidebarLayout(
+                            sidebarPanel(
+                                # Dropdown for selecting track or artist
+                                selectInput("selection", 
+                                            "Choose what to analyze:", 
+                                            choices = c("Track Name", "Artist Name")),
+                                
+                                # Dynamic UI for filtering based on the choice
+                                uiOutput("dynamic_filter"),
+                                
+                                # Slider input for filtering by playlists
+                                sliderInput("playlist_filter", 
+                                            "Number of Spotify Playlists:", 
+                                            min = playlist_min, 
+                                            max = playlist_max, 
+                                            value = c(playlist_min, playlist_max)),
+                                
+                                # Slider input for filtering by streams
+                                sliderInput("stream_filter", 
+                                            "Number of Streams:", 
+                                            min = stream_min, 
+                                            max = stream_max, 
+                                            value = c(stream_min, stream_max))
+                            ),
+                            
+                            mainPanel(
+                                # Dynamic plot
+                                plotOutput("spotify_plot", height = "400px"),
+                                
+                                # Full-width row for the track table in two columns
+                                conditionalPanel(
+                                    condition = "input.selection == 'Artist Name'",  # Show tables only for Artist Name
+                                    fluidRow(
+                                        column(6, 
+                                               h4("Artist Detail", style = "text-align: center;"),
+                                               tableOutput("track_table_left")),
+                                        column(6, 
+                                               h4("Artist Detail", style = "text-align: center;"),
+                                               tableOutput("track_table_right"))
+                                    )
+                                )
+                            )
+                        )
+               ))),
 
   tabPanel("Audio Feature",
            icon = icon('music'),
