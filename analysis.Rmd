@@ -1,0 +1,217 @@
+---
+title: "analysis"
+author: "Zikang Ge"
+date: "2024-12-12"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(wordcloud)
+library(RColorBrewer)
+```
+
+```{r}
+url <- "https://github.com/TheGooseGuy/RShiny-Spotify-Dashboard/raw/main/spotify-2023.csv"
+dataset <- read_csv(url)
+```
+
+```{r}
+str(dataset)
+summary(dataset)
+
+```
+```{r}
+# Fill missing numeric values with the median
+dataset <- dataset %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .)))
+
+# Check again for missing values
+colSums(is.na(dataset))
+```
+```{r}
+# Standardize column names for consistency
+colnames(dataset) <- tolower(gsub("[[:punct:]]", "_", colnames(dataset)))
+
+# Basic statistics for numeric columns
+numeric_summary <- dataset %>%
+  summarise(across(where(is.numeric), list(
+    mean = ~mean(. , na.rm = TRUE),
+    median = ~median(. , na.rm = TRUE),
+    sd = ~sd(. , na.rm = TRUE)
+  )))
+
+numeric_summary
+```
+```{r}
+# Count of songs by release year
+ggplot(dataset, aes(x = as.factor(released_year))) +
+  geom_bar(fill = "#1DB954", color = "black") +
+  labs(title = "Number of Songs Released by Year",
+       x = "Release Year", y = "Count") +
+  theme_minimal()+
+    
+
+# Count of songs by release month
+ggplot(dataset, aes(x = as.factor(released_month))) +
+  geom_bar(fill = "#FF5733", color = "black") +
+  labs(title = "Number of Songs Released by Month",
+       x = "Release Month", y = "Count") +
+  theme_minimal()
+
+```
+
+```{r}
+# Visualize release trends
+# Create a heatmap of release trends
+heatmap_data <- dataset %>%
+  count(released_month, released_day)
+
+ggplot(heatmap_data, aes(x = as.factor(released_month), y = as.factor(released_day), fill = n)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "#1DB954") +
+  labs(title = "Heatmap of Song Releases", x = "Release Month", y = "Release Day") +
+  theme_minimal()
+
+```
+
+```{r}
+# Distribution of danceability
+ggplot(dataset, aes(x = danceability__)) +
+  geom_histogram(binwidth = 5, fill = "#FF5733", color = "black") +
+  labs(title = "Distribution of Danceability",
+       x = "Danceability (%)", y = "Count") +
+  theme_minimal()
+
+# Distribution of energy
+ggplot(dataset, aes(x = energy__)) +
+  geom_histogram(binwidth = 5, fill = "#1DB954", color = "black") +
+  labs(title = "Distribution of Energy",
+       x = "Energy (%)", y = "Count") +
+  theme_minimal()
+
+# Distribution of valence
+ggplot(dataset, aes(x = valence__)) +
+  geom_histogram(binwidth = 5, fill = "#FFC300", color = "black") +
+  labs(title = "Distribution of Valence",
+       x = "Valence (%)", y = "Count") +
+  theme_minimal()
+
+```
+
+# K means clustering
+
+```{r}
+# Select numerical features for clustering
+features <- dataset %>%
+  select(bpm, danceability__, energy__, valence__, acousticness__, liveness__)
+
+# Normalize the features
+features_scaled <- as.data.frame(scale(features))
+
+# Check the first few rows of the scaled features
+head(features_scaled)
+```
+
+```{r}
+# Determine optimal number of clusters
+# Calculate total within-cluster sum of squares for different cluster counts
+wss <- sapply(1:10, function(k) {
+  kmeans(features_scaled, centers = k, nstart = 10)$tot.withinss
+})
+
+# Plot the Elbow Method
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
+     xlab = "Number of Clusters", ylab = "Total Within-Cluster Sum of Squares",
+     main = "Elbow Method for Optimal Clusters")
+
+```
+
+```{r}
+# K means clustering
+# Apply k-means clustering
+set.seed(42) # For reproducibility
+kmeans_result <- kmeans(features_scaled, centers = 4, nstart = 10)
+
+# Add the cluster assignment to the dataset
+dataset$cluster <- as.factor(kmeans_result$cluster)
+
+```
+
+
+
+```{r}
+# Perform PCA on scaled features
+pca <- prcomp(features_scaled)
+
+# Create a data frame with PCA results and clusters
+pca_data <- data.frame(PC1 = pca$x[, 1], PC2 = pca$x[, 2], Cluster = dataset$cluster)
+
+# Plot clusters
+ggplot(pca_data, aes(x = PC1, y = PC2, color = Cluster)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "Clusters of Songs (PCA Visualization)", x = "Principal Component 1", y = "Principal Component 2") +
+  theme_minimal()
+
+```
+
+
+```{r}
+# box plot of feature distribution by clusters
+# Boxplot for danceability by cluster
+ggplot(dataset, aes(x = cluster, y = danceability__)) +
+  geom_boxplot(fill = "#1DB954", alpha = 0.7) +
+  labs(title = "Danceability by Cluster", x = "Cluster", y = "Danceability (%)") +
+  theme_minimal()
+
+# Boxplot for energy by cluster
+ggplot(dataset, aes(x = cluster, y = energy__)) +
+  geom_boxplot(fill = "#FF5733", alpha = 0.7) +
+  labs(title = "Energy by Cluster", x = "Cluster", y = "Energy (%)") +
+  theme_minimal()
+```
+```{r}
+# Calculate average feature values per cluster
+cluster_summary <- dataset %>%
+  group_by(cluster) %>%
+  summarise(
+    avg_bpm = mean(bpm),
+    avg_danceability = mean(danceability__),
+    avg_energy = mean(energy__),
+    avg_valence = mean(valence__),
+    avg_acousticness = mean(acousticness__),
+    avg_liveness = mean(liveness__)
+  )
+
+print(cluster_summary)
+
+
+```
+
+
+Based on the average feature values of each cluster, we can assign descriptive labels to better represent the "vibes" of the songs in each cluster:
+
+Cluster Descriptions
+Cluster 1:
+
+Description: High tempo, moderate danceability, and energy, but low valence (happiness). Likely represents intense or moody tracks, possibly from genres like trap, electronic, or dark pop.
+Suggested Label: Intense & Dark
+Cluster 2:
+
+Description: Moderate tempo with high danceability, energy, and valence. These tracks are vibrant, upbeat, and likely to be feel-good songs from genres like pop, dance, or happy electronic.
+Suggested Label: Upbeat & Happy
+Cluster 3:
+
+Description: Moderate tempo, good energy, and valence with higher liveness. Songs in this cluster could be live recordings or performances, and likely fall into acoustic, indie, or live pop categories.
+Suggested Label: Energetic & Live
+Cluster 4:
+
+Description: Low energy and danceability but very high acousticness. Likely represents slower, acoustic, or calmer genres such as folk, ambient, or ballads.
+
+
+
+
+
+
