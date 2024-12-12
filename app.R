@@ -27,6 +27,25 @@ access_token <- get_spotify_access_token()
 
 
 
+format_artists <- function(artists) {
+  # If artists is a data frame or list, extract names
+  if (is.data.frame(artists) || is.list(artists)) {
+    artist_names <- sapply(artists, function(artist) {
+      if (is.list(artist)) artist$name else as.character(artist)
+    })
+  } else {
+    # If it's already a character vector
+    artist_names <- as.character(artists)
+  }
+  
+  # Combine unique artists
+  unique_artists <- unique(artist_names)
+  
+  # Join artists
+  paste(unique_artists, collapse = ", ")
+}
+
+
 #Listening Trends
 
 process_spotify_listening_trend <- function(limit = 50) {
@@ -102,7 +121,7 @@ plot_top_artists_map <- function(limit = 10) {
   # Fetch top artists from Spotify
   top_artists <- get_my_top_artists_or_tracks(
     type="artists",
-    limit = 20) %>%
+    limit = limit) %>%
     transmute(Artist = name) # Extract artist names
   
   # Load your CSV with geo data
@@ -142,7 +161,7 @@ plot_top_artists_map <- function(limit = 10) {
 get_top_artists_details <- function(limit = 50) {
   # Fetch top artists
   top_artists <- get_my_top_artists_or_tracks(type = "artists", limit = limit)
-  
+
   # Safely extract the first (largest) image URL from the nested column
   extract_image_url <- function(images) {
     # If images is NULL or empty, return NA
@@ -173,28 +192,16 @@ get_top_artists_details <- function(limit = 50) {
   
   return(artist_details)
 }
-format_artists <- function(artists) {
-  # If artists is a data frame or list, extract names
-  if (is.data.frame(artists) || is.list(artists)) {
-    artist_names <- sapply(artists, function(artist) {
-      if (is.list(artist)) artist$name else as.character(artist)
-    })
-  } else {
-    # If it's already a character vector
-    artist_names <- as.character(artists)
-  }
-  
-  # Combine unique artists
-  unique_artists <- unique(artist_names)
-  
-  # Join artists
-  paste(unique_artists, collapse = ", ")
-}
+
 
 #Top tracks
 get_top_tracks_details <- function(limit = 50) {
   # Fetch top tracks 
   top_tracks <- get_my_top_artists_or_tracks(type = "tracks", limit = limit)
+  artist_names <- lapply(top_tracks$artists, function(x) x$name)
+  #formatted_artist_names <- format_artists(artist_names)
+  #print(artist_names)
+  
   
   # Safely extract the album image URL
   extract_image_url <- function(images) {
@@ -208,35 +215,22 @@ get_top_tracks_details <- function(limit = 50) {
     return(NA_character_)
   }
   
-  # Extract artist names
-  extract_artist_names <- function(artists_list) {
-    if (is.null(artists_list) || length(artists_list) == 0) {
-      return(NA_character_)
-    }
-    
-    artist_names <- sapply(artists_list, function(artist_df) {
-      if (is.data.frame(artist_df) && "name" %in% names(artist_df)) {
-        return(artist_df$name)
-      }
-      return(NA_character_)
-    })
-    
-    return(paste(artist_names, collapse = ", "))
-  }
   
   # Create a tibble with relevant track details
+  artist_names <- sapply(top_tracks$artists, function(x) paste(x$name, collapse = ", "))
+  
+  # Create the track_details tibble with the formatted artist names
   track_details <- tibble(
     track_name = top_tracks$name,
-    artists = sapply(top_tracks$artists, extract_artist_names),
+    artists = artist_names,  # Using the formatted artist names
     album_name = top_tracks$album.name,
     popularity = top_tracks$popularity,
     release_date = top_tracks$album.release_date,
     album_image_url = sapply(top_tracks$album.images, extract_image_url)
-  ) %>% arrange(desc(popularity))
-  
+  ) %>% 
+    arrange(desc(popularity))
   return(track_details)
 }
-
 
 
 
@@ -282,35 +276,17 @@ dashboard_ui <- tabsetPanel(
   tabPanel("Top Tracks",
            icon = icon("music"),
            fluidPage(
-               card(
-                   h3("Metrics Exploration"),
-                   fluidRow(
-                       column(6, 
-                              sliderInput("danceability", "Danceability:", 
-                                          min = 0, max = 1, value = c(0.4, 0.8))),
-                       column(6, 
-                              sliderInput("energy", "Energy:", 
-                                          min = 0, max = 1, value = c(0.4, 0.8)))
-                   ),
-                   fluidRow(
-                       column(6, 
-                              sliderInput("valence", "Valence:", 
-                                          min = 0, max = 1, value = c(0.4, 0.8))),
-                       column(6, 
-                              sliderInput("speechiness", "Speechiness:", 
-                                          min = 0, max = 1, value = c(0.2, 0.6)))
-                   ),
-                   actionButton("apply_filters", "Apply Filters")
+             br(),
+               fluidRow(
+                 column(3,sliderInput("top_track_limit", 
+                                      "Number of Top Tracks", 
+                                      min = 10, 
+                                      max = 50, 
+                                      value = 20, 
+                                      step = 1)),
+                 column(9,actionButton("update_top_tracks_table","Update", style="margin-top: 3%"))
                ),
-               #card(
-                   #DT::dataTableOutput("filtered_songs_table")
-                   #),
-               sliderInput("top_track_limit", 
-                           "Number of Top Tracks", 
-                           min = 10, 
-                           max = 50, 
-                           value = 20, 
-                           step = 1),
+              br(),
                reactableOutput("top_tracks_table"),
                p("This shows your top tracks along with their album cover, artists, album name, and popularity."),
                class = "inner-tab"
@@ -318,12 +294,15 @@ dashboard_ui <- tabsetPanel(
            ),
   tabPanel("Top Artists",
            icon = icon("microphone"),
-           sliderInput("top_artist_limit", 
-                       "Number of Top Artists", 
-                       min = 10, 
-                       max = 20, 
-                       value = 10, 
-                       step = 1),
+           fluidRow(
+             column(3,sliderInput("top_artist_limit", 
+                                  "Number of Top Artists", 
+                                  min = 10, 
+                                  max = 20, 
+                                  value = 10, 
+                                  step = 1)),
+             column(9, actionButton("update_top_artists_table","Update", style="margin-top: 3%"))
+           ),
            # Use fluidRow to create a horizontal layout
            fluidRow(
              # Use column to define how much space each output takes up
@@ -342,12 +321,15 @@ dashboard_ui <- tabsetPanel(
            
   tabPanel("Listening Trends",
            icon = icon("arrow-trend-up"),
-           sliderInput("spotify_limit", 
-                       "Number of Recent Tracks", 
-                       min = 20, 
-                       max = 50, 
-                       value = 50, 
-                       step = 10),
+           fluidRow(
+             column(3,sliderInput("spotify_limit", 
+                                  "Number of Recent Tracks", 
+                                  min = 20, 
+                                  max = 50, 
+                                  value = 50, 
+                                  step = 10)),
+             column(9, actionButton("update_recent_tracks_plot","Generate Plot", style="margin-top: 3%"))
+           ),
            plotOutput("listeningTrendsPlot"),
            p("This chart shows how your listening habits have changed over time."), class="inner-tab")
 )
@@ -605,36 +587,49 @@ server <- function(input, output, session) {
     
     # Reactive data for trends
     trends_data <- reactive({
-        req(user_data())
-        
-        user_data()$tracks %>%
-            mutate(month = floor_date(as.Date(added_at), "month")) %>%  # Adjust for available timestamp field
-            group_by(month) %>%
-            summarize(
-                total_songs = n(),
-                total_duration = sum(duration_ms, na.rm = TRUE) / 60000  # Duration in minutes
-            )
+      req(user_data())
+      
+      user_data()$tracks %>%
+        mutate(month = floor_date(as.Date(added_at), "month")) %>%  # Adjust for available timestamp field
+        group_by(month) %>%
+        summarize(
+          total_songs = n(),
+          total_duration = sum(duration_ms, na.rm = TRUE) / 60000  # Duration in minutes
+        )
     })
     
-    # Listening Trends Plot
-    output$listeningTrendsPlot <- renderPlot({
+    # EventReactive to process trends only when button is clicked
+    trend_results <- eventReactive(input$update_recent_tracks_plot, {
       validate(need(input$spotify_limit, "Please select a limit"))
       
       tryCatch({
-        trend_results <- process_spotify_listening_trend(limit = input$spotify_limit)
-        
-        # Display the plot
-        trend_results$plot
+        process_spotify_listening_trend(limit = input$spotify_limit)
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")
         NULL
       })
     })
     
+    # Listening Trends Plot
+    output$listeningTrendsPlot <- renderPlot({
+      req(trend_results())  # Ensure trend_results is available
+      trend_results()$plot
+    })
+    
     #Top artist table
-    output$top_artist_table <- renderReactable({
-      artist_details <- get_top_artists_details(input$top_artist_limit)
+    # EventReactive to fetch top artists details only when the button is clicked
+    top_artist_data <- eventReactive(input$update_top_artists_table, {
+      req(input$top_artist_limit)  # Ensure that limit is selected
       
+      # Fetch top artist details based on the limit
+      get_top_artists_details(input$top_artist_limit)
+    })
+    
+    # Render the top artist table
+    output$top_artist_table <- renderReactable({
+      artist_details <- top_artist_data()  # Use the data triggered by the button click
+      
+      # Render the reactable table
       reactable(
         artist_details, 
         columns = list(
@@ -652,32 +647,30 @@ server <- function(input, output, session) {
           popularity = colDef(name = "Popularity"),
           followers = colDef(name = "Followers")
         ),
-        defaultColDef = colDef(
-          align = "center"
-        ),
+        defaultColDef = colDef(align = "center"),
         bordered = TRUE,
         striped = TRUE,
         highlight = TRUE,
-        theme = reactable::reactableTheme(
-          backgroundColor = "#121212",
-        )
+        theme = reactable::reactableTheme(backgroundColor = "#121212")
       )
     })
     
-    #Top Artist
-    output$top_artists_map <- renderLeaflet({
-      # Ensure you've set up Spotify authentication first
+    # EventReactive to plot top artists map only when the button is clicked
+    top_artists_map_data <- eventReactive(input$update_top_artists_table, {
       validate(need(input$top_artist_limit, "Please select a limit"))
       
       tryCatch({
-        top_artist_map <- plot_top_artists_map(limit = input$top_artist_limit)
-        
-        # Display the Leaflet map
-        top_artist_map
+        plot_top_artists_map(limit = input$top_artist_limit)
       }, error = function(e) {
         showNotification(paste("Error:", e$message), type = "error")
         NULL
       })
+    })
+    
+    # Render the top artists map
+    output$top_artists_map <- renderLeaflet({
+      top_artist_map <- top_artists_map_data()  # Use the data triggered by the button click
+      top_artist_map
     })
     
     # Output for total listening time summary
@@ -712,9 +705,21 @@ server <- function(input, output, session) {
     
     
     # Top Tracks Table
-    output$top_tracks_table <- renderReactable({
-      track_details <- get_top_tracks_details(input$top_track_limit)
+    # EventReactive to fetch top tracks only when button is clicked
+    top_tracks_data <- eventReactive(input$update_top_tracks_table, {
+      req(input$top_track_limit)  # Ensure that limit is selected
       
+      # Fetch track details based on the limit
+      track_details <- get_top_tracks_details(input$top_track_limit)
+      track_details
+    })
+    
+    # Render the top tracks table
+    output$top_tracks_table <- renderReactable({
+      track_details <- top_tracks_data()  # Use the data triggered by the button click
+      
+
+      # Render the reactable table
       reactable(
         track_details,
         columns = list(
@@ -734,14 +739,12 @@ server <- function(input, output, session) {
             }
           )
         ),
-        defaultColDef = colDef(
-          align = "center"
-        ),
+        defaultColDef = colDef(align = "center"),
         bordered = TRUE,
         striped = TRUE,
         highlight = TRUE,
         theme = reactable::reactableTheme(
-          backgroundColor = "#121212",
+          backgroundColor = "#121212"
         )
       )
     })
@@ -779,14 +782,11 @@ server <- function(input, output, session) {
       req(currently_playing())
       
       track <- currently_playing()$item
-      print(track)
-      print(track$artists$name)
       song_name = track$name
       # Extract artist names
       #artists <- sapply(track$artists, function(artist) artist$name)
       artist_names <- track$artists$name
       formatted_artist_names <- format_artists(artist_names)
-      print(formatted_artist_names)
       div(
         h3("Title:", song_name),
         h4(paste("By:", formatted_artist_names))
@@ -812,6 +812,15 @@ server <- function(input, output, session) {
     
     # Refresh info
     observeEvent(input$refresh, {
+      currently_playing <- reactive({
+        tryCatch({
+          get_my_currently_playing(authorization = authorization())
+        }, error = function(e) {
+          message("Error fetching currently playing track: ", e$message)
+          NULL
+        })
+      })
+      
       output$user_name <- renderText({
         paste("Username:", user_info()$display_name)
       })
@@ -824,15 +833,15 @@ server <- function(input, output, session) {
         req(currently_playing())
         
         track <- currently_playing()$item
-        if (is.null(track)) {
-          div("Nothing is currently playing.")
-        } else {
-          div(
-            h4(paste("Track:", track$name)),
-            h5(paste("Artist:", paste(track$artists[[1]]$name, collapse = ", "))),
-            h5(paste("Album:", track$album$name))
-          )
-        }
+        song_name = track$name
+        # Extract artist names
+        #artists <- sapply(track$artists, function(artist) artist$name)
+        artist_names <- track$artists$name
+        formatted_artist_names <- format_artists(artist_names)
+        div(
+          h3("Title:", song_name),
+          h4(paste("By:", formatted_artist_names))
+        )
       })
       
       output$current_track_album <- renderUI({
