@@ -26,7 +26,8 @@ Sys.setenv(SPOTIFY_REDIRECT_URI = "http://localhost:1410/")
 access_token <- get_spotify_access_token()
 
 # Load the reference data set and preprocess it
-data_reference = read_csv("C:/Users/Administrator/Desktop/spotify-2023.csv")
+data_url = "https://github.com/TheGooseGuy/RShiny-Spotify-Dashboard/raw/main/spotify-2023.csv"
+data_reference = read_csv(data_url)
 data_reference$streams = as.numeric(data_reference$streams)
 data_reference = data_reference %>% rename(artist_name = 'artist(s)_name')
 
@@ -1045,6 +1046,341 @@ server <- function(input, output, session) {
         showNotification("Playlist saved successfully!", type = "message")
     })
     
+    
+    # Top Pick 2023 output
+    # Introduction 
+    output$description = renderUI({
+        tags$div(
+            tags$h3("Description:"),
+            tags$p("This dataset contains a comprehensive list of the most famous songs of 2023 as listed on Spotify. The dataset offers a wealth of features beyond what is typically available in similar datasets. It provides insights into each song's attributes, popularity, and presence on various music platforms.",style = "font-size: 18px;"),
+            tags$p("The dataset includes information such as ",style = "font-size: 18px;", 
+                   tags$strong("track name, artist(s) name, release date, Spotify playlists and charts, streaming statistics, Apple Music presence, Deezer presence, Shazam charts, and various audio features.",style = "font-size: 18px;")),
+            tags$p(
+                "Source: ", 
+                tags$a(href = "https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023", target = "_blank", "Spotify Dataset Source"),
+                style = "margin-top: 200px; font-size: 14px; color: #555;"
+            ),
+            style = "background-color:#100000 ;color:#ffffff padding: 15px; border-radius: 5px;"
+        )
+    })
+    output$features = renderUI({
+        tags$div(
+            tags$ul(
+                tags$li(tags$strong("track_name:",style = "font-size: 16px;"), " Name of the song",style = "font-size: 16px;"),
+                tags$li(tags$strong("artist(s)_name:",style = "font-size: 16px;"), " Name of the artist(s) of the song",style = "font-size: 16px;"),
+                tags$li(tags$strong("artist_count:",style = "font-size: 16px;"), " Number of artists contributing to the song",style = "font-size: 16px;"),
+                tags$li(tags$strong("released_year:",style = "font-size: 16px;"), " Year when the song was released",style = "font-size: 16px;"),
+                tags$li(tags$strong("released_month:",style = "font-size: 16px;"), " Month when the song was released",style = "font-size: 16px;"),
+                tags$li(tags$strong("released_day:",style = "font-size: 16px;"), " Day of the month when the song was released",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_spotify_playlists:",style = "font-size: 16px;"), " Number of Spotify playlists the song is included in",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_spotify_charts:",style = "font-size: 16px;"), " Presence and rank of the song on Spotify charts",style = "font-size: 16px;"),
+                tags$li(tags$strong("streams:",style = "font-size: 16px;"), " Total number of streams on Spotify",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_apple_playlists:",style = "font-size: 16px;"), " Number of Apple Music playlists the song is included in",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_apple_charts:",style = "font-size: 16px;"), " Presence and rank of the song on Apple Music charts",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_deezer_playlists:",style = "font-size: 16px;"), " Number of Deezer playlists the song is included in",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_deezer_charts:",style = "font-size: 16px;"), " Presence and rank of the song on Deezer charts",style = "font-size: 16px;"),
+                tags$li(tags$strong("in_shazam_charts:",style = "font-size: 16px;"), " Presence and rank of the song on Shazam charts",style = "font-size: 16px;")
+            ),
+            style = "background-color: #100000 ; color:#ffffff padding: 15px; border-radius: 5px;"
+        )
+    })
+    
+    
+    
+    
+    
+    
+    # Render the top 10 tracks by stream summary
+    output$topstreamsummary = renderUI({
+        top10_streams = HTML(paste0(lapply(1:nrow(top10_streams_list),function(i){
+            sprintf("%d. <strong>%s</strong> by %s with %s streams<br>",
+                    i,
+                    top10_streams_list$track_name[i],
+                    top10_streams_list$artist_name[i],
+                    format(as.numeric(top10_streams_list$streams[i])))
+        }),
+        collapse = ""))
+    })
+    # Render the top 10 artists by total streams summary
+    output$topartiststreamsummary = renderUI({
+        top10_artists_streams = HTML(paste0(
+            lapply(1:nrow(top10_total_artists_stream), function(i) {
+                sprintf(
+                    "%d. <strong>%s</strong> with %d tracks and %s streams<br>",
+                    i,
+                    top10_total_artists_stream$artist_name[i],
+                    top10_total_artists_stream$track_num[i],
+                    format(top10_total_artists_stream$total_streams[i])
+                )
+            }),
+            collapse = ""
+        ))
+    })
+    # Plot for top 10 tracks by stream
+    output$topstreamplot = renderPlot({
+        ggplot(top10_streams_list,aes(x = reorder(track_name,streams),y = streams,fill = streams))+
+            geom_bar(stat = "identity") +
+            coord_flip() +
+            labs(
+                title = "Top 10 Tracks by Streams with Artists",
+                x = "Track Name",
+                y = "Streams",
+            ) +
+            geom_text(
+                aes(label = artist_name),  # Use artist name as label
+                vjust = 0.5,
+                hjust = 1.1,
+                size = 4,
+                face = "bold",
+                color = "#100000"
+            ) +
+            scale_y_continuous(labels = scales::comma_format(scale=0.001,suffix = "k")) +
+            scale_fill_gradient(low = "lightgreen", high = "#1DB954")+
+            theme_minimal() +
+            theme(
+                plot.title = element_text(hjust = 0.5,size = 14,color = "white",face = "bold"),
+                axis.text = element_text(size = 10,color = "white",face = "bold"),
+                axis.title = element_text(size = 10,color = "white",face = "bold"),
+                plot.margin = unit(c(1, 1, 1, 0), "cm"),
+                plot.background = element_rect(fill = "#100000", color = NA),
+                panel.background = element_rect(fill = "#100000", color = NA),
+                panel.grid.major = element_line(color = "gray40"),
+                panel.grid.minor = element_line(color = "gray30"),
+                legend.background = element_rect(fill = "#100000"),
+                legend.position = "None",
+                axis.text.x = element_text(angle = 45, hjust = 1)
+            )
+    })
+    # Plot for top 10 artists by total streams
+    output$totalstreamplot = renderPlot({
+        ggplot(top10_total_artists_stream,aes(x = reorder(artist_name,total_streams),y = total_streams,fill = total_streams))+
+            geom_bar(stat = "identity")+
+            geom_text(
+                aes(label = paste0("Tracks number: ", track_num)),
+                vjust = 0.5,
+                hjust = 1.1,
+                size = 4,
+                face = "bold",
+                color = "#100000")+
+            coord_flip()+
+            labs(
+                title = "Top 10 Artists by Total Streams with Track number",
+                x = "Artist",
+                y = "Total Streams"
+            )+
+            scale_y_continuous(labels = scales::comma_format(scale=0.001,suffix = "k")) +
+            scale_fill_gradient(low = "lightgreen", high = "#1DB954")+
+            theme_minimal() +
+            theme(
+                plot.title = element_text(hjust = 0.5,size = 14,color = "white",face = "bold"),
+                axis.text = element_text(size = 10,color = "white",face = "bold"),
+                axis.title = element_text(size = 10,color = "white",face = "bold"),
+                plot.margin = unit(c(1, 1, 1, 0), "cm"),
+                plot.background = element_rect(fill = "#100000", color = NA),
+                panel.background = element_rect(fill = "#100000", color = NA),
+                panel.grid.major = element_line(color = "gray40"),
+                panel.grid.minor = element_line(color = "gray30"),
+                legend.background = element_rect(fill = "#100000"),
+                legend.position = "None",
+                axis.text.x = element_text(angle = 45, hjust = 1)
+            )
+    })
+    
+    # Render the top 10 tracks by playlist summary
+    output$topplaylistsummary = renderUI({
+        HTML(paste0(
+            lapply(1:nrow(top10_spotify_playlists), function(i) {
+                sprintf(
+                    "%d. <strong>%s</strong> by %s with %s playlists<br>",
+                    i,
+                    top10_spotify_playlists$track_name[i],
+                    top10_spotify_playlists$artist_name[i],
+                    format(as.numeric(top10_spotify_playlists$in_spotify_playlists[i]), big.mark = ",")
+                )
+            }),
+            collapse = ""
+        ))
+    })
+    
+    # Render the top 10 artists by total playlists summary
+    output$topartistplaylistsummary = renderUI({
+        HTML(paste0(
+            lapply(1:nrow(top10_total_artists_playlists), function(i) {
+                sprintf(
+                    "%d. <strong>%s</strong> with %d tracks and %s playlists<br>",
+                    i,
+                    top10_total_artists_playlists$artist_name[i],
+                    top10_total_artists_playlists$track_num[i],
+                    format(top10_total_artists_playlists$total_playlists[i], big.mark = ",")
+                )
+            }),
+            collapse = ""
+        ))
+    })
+    
+    # Plot for Top 10 Tracks by Playlist Count
+    output$topplaylistplot = renderPlot({
+        ggplot(top10_spotify_playlists, aes(x = reorder(track_name, in_spotify_playlists), y = in_spotify_playlists, fill = in_spotify_playlists)) +
+            geom_bar(stat = "identity") +
+            coord_flip() +
+            labs(
+                title = "Top 10 Tracks by Playlist Count with Artists",
+                x = "Track Name",
+                y = "Playlist Count"
+            ) +
+            geom_text(
+                aes(label = artist_name),  # Use artist name as label
+                vjust = 0.5,
+                hjust = 1.1,
+                size = 4,
+                face = "bold",
+                color = "#100000"
+            ) +
+            scale_y_continuous(labels = scales::comma_format(scale = 0.001, suffix = "k")) +
+            scale_fill_gradient(low = "lightgreen", high = "#1DB954") +
+            theme_minimal() +
+            theme(
+                plot.title = element_text(hjust = 0.5, size = 14, color = "white", face = "bold"),
+                axis.text = element_text(size = 10, color = "white", face = "bold"),
+                axis.title = element_text(size = 10, color = "white", face = "bold"),
+                plot.margin = unit(c(1, 1, 1, 0), "cm"),
+                plot.background = element_rect(fill = "#100000", color = NA),
+                panel.background = element_rect(fill = "#100000", color = NA),
+                panel.grid.major = element_line(color = "gray40"),
+                panel.grid.minor = element_line(color = "gray30"),
+                legend.background = element_rect(fill = "#100000"),
+                legend.position = "None",
+                axis.text.x = element_text(angle = 45, hjust = 1)
+            )
+    })
+    
+    # Plot for Top 10 Artists by Total Playlist Count
+    output$totalplaylistplot = renderPlot({
+        ggplot(top10_total_artists_playlists, aes(x = reorder(artist_name, total_playlists), y = total_playlists, fill = total_playlists)) +
+            geom_bar(stat = "identity") +
+            geom_text(
+                aes(label = paste0("Tracks number: ", track_num)),
+                vjust = 0.5,
+                hjust = 1.1,
+                size = 4,
+                face = "bold",
+                color = "#100000"
+            ) +
+            coord_flip() +
+            labs(
+                title = "Top 10 Artists by Total Playlists with Track Number",
+                x = "Artist",
+                y = "Total Playlists"
+            ) +
+            scale_y_continuous(labels = scales::comma_format(scale = 0.001, suffix = "k")) +
+            scale_fill_gradient(low = "lightgreen", high = "#1DB954") +
+            theme_minimal() +
+            theme(
+                plot.title = element_text(hjust = 0.5, size = 14, color = "white", face = "bold"),
+                axis.text = element_text(size = 10, color = "white", face = "bold"),
+                axis.title = element_text(size = 10, color = "white", face = "bold"),
+                plot.margin = unit(c(1, 1, 1, 0), "cm"),
+                plot.background = element_rect(fill = "#100000", color = NA),
+                panel.background = element_rect(fill = "#100000", color = NA),
+                panel.grid.major = element_line(color = "gray40"),
+                panel.grid.minor = element_line(color = "gray30"),
+                legend.background = element_rect(fill = "#100000"),
+                legend.position = "None",
+                axis.text.x = element_text(angle = 45, hjust = 1)
+            )
+    })
+    
+    # Create dynamic filter UI based on the selection
+    output$dynamic_filter = renderUI({
+        if (input$selection == "Track Name") {
+            selectInput("track_artist_filter", 
+                        "Select Track Name:", 
+                        choices = unique(data_reference$track_name))
+        } else {
+            artist_ordered = data_reference %>%
+                group_by(artist_name) %>%
+                summarize(total_streams = sum(streams, na.rm = TRUE)) %>%
+                arrange(desc(total_streams))
+            
+            selectInput("track_artist_filter", 
+                        "Select Artist Name:", 
+                        choices = unique(artist_ordered))
+        }
+    })
+    
+    # Filter the data re-actively
+    filtered_data = reactive({
+        if (input$selection == "Track Name") {
+            data_reference %>%
+                filter(track_name == input$track_artist_filter &
+                           in_spotify_playlists >= input$playlist_filter[1] &
+                           in_spotify_playlists <= input$playlist_filter[2] &
+                           streams >= input$stream_filter[1] &
+                           streams <= input$stream_filter[2])
+        } else {
+            data_reference %>%
+                filter(artist_name == input$track_artist_filter &
+                           in_spotify_playlists >= input$playlist_filter[1] &
+                           in_spotify_playlists <= input$playlist_filter[2] &
+                           streams >= input$stream_filter[1] &
+                           streams <= input$stream_filter[2])
+        }
+    })
+    
+    # Render the plot
+    output$spotify_plot = renderPlot({
+        data = filtered_data()
+        ggplot(data, aes(x = in_spotify_playlists, y = streams, color = streams)) +
+            geom_point(size = 3, alpha = 0.7) +
+            scale_color_gradient(low = "lightgreen", high = "#1DB954") +  # Use color aesthetic
+            labs(
+                title = "Spotify Playlists vs Streams",
+                x = "Number of Spotify Playlists",
+                y = "Number of Streams"
+            ) +
+            theme_minimal() +
+            theme(
+                plot.title = element_text(hjust = 0.5,size = 15,color = "white",face = "bold"),
+                axis.text = element_text(size = 13,color = "white",face = "bold"),
+                axis.title = element_text(size = 13,color = "white",face = "bold"),
+                plot.margin = unit(c(1, 1, 1, 0), "cm"),
+                plot.background = element_rect(fill = "#100000", color = NA),
+                panel.background = element_rect(fill = "#100000", color = NA),
+                panel.grid.major = element_line(color = "gray40"),
+                panel.grid.minor = element_line(color = "gray30"),
+                legend.background = element_rect(fill = "#100000"),
+                legend.position = "None",
+                axis.text.x = element_text(angle = 45, hjust = 1)
+            ) +
+            scale_y_continuous(labels = scales::comma_format(scale = 0.001, suffix = "k"))  # Format y-axis
+    })
+    
+    # Split the track list into two parts
+    split_tracks <- reactive({
+        if (input$selection == "Artist Name") {
+            tracks = data_reference %>%
+                filter(artist_name == input$track_artist_filter) %>%
+                select(track_name, streams, in_spotify_playlists) %>%
+                arrange(desc(streams))
+            mid_point = ceiling(nrow(tracks) / 2)
+            list(
+                left = tracks[1:mid_point, ],
+                right = tracks[(mid_point + 1):nrow(tracks), ]
+            )
+        } else {
+            list(left = NULL, right = NULL)  # Return empty lists if "Track Name" is selected
+        }
+    })
+    
+    # Render the left column table
+    output$track_table_left = renderTable({
+        split_tracks()$left
+    })
+    
+    # Render the right column table
+    output$track_table_right = renderTable({
+        split_tracks()$right
+    })
 }
 
 # Run the application 
